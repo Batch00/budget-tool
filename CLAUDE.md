@@ -53,7 +53,7 @@ npm run preview  # preview production build
 3. Transaction logging ✅
 4. Dashboard with planned vs actual vs remaining ✅
 5. Category/subcategory management ✅
-6. Analytics and charts
+6. Analytics and charts ✅
 
 ## Design Guidelines
 - Clean and modern, mobile-friendly
