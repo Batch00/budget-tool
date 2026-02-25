@@ -1,0 +1,128 @@
+export const defaultCategories = [
+  {
+    id: 'income',
+    name: 'Income',
+    type: 'income',
+    color: '#10b981',
+    subcategories: [
+      { id: 'income_paycheck', name: 'Paycheck' },
+      { id: 'income_side', name: 'Side Income' },
+      { id: 'income_investment', name: 'Investment Returns' },
+    ],
+  },
+  {
+    id: 'taxes',
+    name: 'Taxes',
+    type: 'expense',
+    color: '#6b7280',
+    subcategories: [
+      { id: 'taxes_federal', name: 'Federal' },
+      { id: 'taxes_state', name: 'State' },
+      { id: 'taxes_local', name: 'Local' },
+    ],
+  },
+  {
+    id: 'housing',
+    name: 'Housing',
+    type: 'expense',
+    color: '#3b82f6',
+    subcategories: [
+      { id: 'housing_rent', name: 'Rent / Mortgage' },
+      { id: 'housing_utilities', name: 'Utilities' },
+      { id: 'housing_internet', name: 'Internet' },
+      { id: 'housing_insurance', name: 'Home Insurance' },
+      { id: 'housing_maintenance', name: 'Maintenance' },
+    ],
+  },
+  {
+    id: 'transportation',
+    name: 'Transportation',
+    type: 'expense',
+    color: '#f97316',
+    subcategories: [
+      { id: 'trans_car_payment', name: 'Car Payment' },
+      { id: 'trans_gas', name: 'Gas' },
+      { id: 'trans_insurance', name: 'Car Insurance' },
+      { id: 'trans_parking', name: 'Parking' },
+      { id: 'trans_transit', name: 'Public Transit' },
+      { id: 'trans_maintenance', name: 'Car Maintenance' },
+    ],
+  },
+  {
+    id: 'food',
+    name: 'Food',
+    type: 'expense',
+    color: '#eab308',
+    subcategories: [
+      { id: 'food_groceries', name: 'Groceries' },
+      { id: 'food_restaurants', name: 'Restaurants' },
+      { id: 'food_coffee', name: 'Coffee' },
+    ],
+  },
+  {
+    id: 'insurance',
+    name: 'Insurance',
+    type: 'expense',
+    color: '#8b5cf6',
+    subcategories: [
+      { id: 'ins_health', name: 'Health Insurance' },
+      { id: 'ins_life', name: 'Life Insurance' },
+      { id: 'ins_dental', name: 'Dental Insurance' },
+    ],
+  },
+  {
+    id: 'savings',
+    name: 'Savings',
+    type: 'expense',
+    color: '#14b8a6',
+    subcategories: [
+      { id: 'save_emergency', name: 'Emergency Fund' },
+      { id: 'save_retirement', name: 'Retirement' },
+      { id: 'save_investments', name: 'Investments' },
+      { id: 'save_other', name: 'Other Savings' },
+    ],
+  },
+  {
+    id: 'student_loans',
+    name: 'Student Loans',
+    type: 'expense',
+    color: '#ef4444',
+    subcategories: [
+      { id: 'student_payment', name: 'Student Loan Payment' },
+    ],
+  },
+  {
+    id: 'personal',
+    name: 'Personal',
+    type: 'expense',
+    color: '#ec4899',
+    subcategories: [
+      { id: 'personal_clothing', name: 'Clothing' },
+      { id: 'personal_entertainment', name: 'Entertainment' },
+      { id: 'personal_subscriptions', name: 'Subscriptions' },
+      { id: 'personal_gifts', name: 'Gifts' },
+      { id: 'personal_selfcare', name: 'Self Care' },
+      { id: 'personal_fitness', name: 'Health & Fitness' },
+    ],
+  },
+  {
+    id: 'debt',
+    name: 'Debt',
+    type: 'expense',
+    color: '#f43f5e',
+    subcategories: [
+      { id: 'debt_credit', name: 'Credit Card' },
+      { id: 'debt_personal', name: 'Personal Loan' },
+      { id: 'debt_other', name: 'Other Debt' },
+    ],
+  },
+  {
+    id: 'other',
+    name: 'Other',
+    type: 'expense',
+    color: '#94a3b8',
+    subcategories: [
+      { id: 'other_misc', name: 'Miscellaneous' },
+    ],
+  },
+]
