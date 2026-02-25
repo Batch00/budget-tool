@@ -103,6 +103,24 @@ export function AppProvider({ children }) {
     ))
   }, [])
 
+  // Move a category up or down within its type group (income or expense)
+  const moveCategory = useCallback((id, direction) => {
+    setCategories(prev => {
+      const idx = prev.findIndex(c => c.id === id)
+      if (idx === -1) return prev
+      const type = prev[idx].type
+      // Indices of same-type categories in their original array positions
+      const sameTypeIndices = prev.map((c, i) => i).filter(i => prev[i].type === type)
+      const posInGroup = sameTypeIndices.indexOf(idx)
+      const targetPos = direction === 'up' ? posInGroup - 1 : posInGroup + 1
+      if (targetPos < 0 || targetPos >= sameTypeIndices.length) return prev
+      const targetIdx = sameTypeIndices[targetPos]
+      const next = [...prev]
+      ;[next[idx], next[targetIdx]] = [next[targetIdx], next[idx]]
+      return next
+    })
+  }, [])
+
   // ── Derived ───────────────────────────────────────────────────────────────
 
   const currentMonthTransactions = useMemo(
@@ -134,6 +152,7 @@ export function AppProvider({ children }) {
     addSubcategory,
     updateSubcategory,
     deleteSubcategory,
+    moveCategory,
   }), [
     currentMonth, setCurrentMonth,
     categories, transactions, currentMonthTransactions,
@@ -142,6 +161,7 @@ export function AppProvider({ children }) {
     setBudgetAmount, getMonthBudget,
     addCategory, updateCategory, deleteCategory,
     addSubcategory, updateSubcategory, deleteSubcategory,
+    moveCategory,
   ])
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
