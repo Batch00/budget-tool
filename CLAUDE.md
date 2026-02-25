@@ -50,7 +50,7 @@ npm run preview  # preview production build
 ## Key Features (in priority order)
 1. Month selector and navigation ✅
 2. Budget planning (planned amounts per category) ✅
-3. Transaction logging
+3. Transaction logging ✅
 4. Dashboard with planned vs actual vs remaining ✅
 5. Category/subcategory management
 6. Analytics and charts
