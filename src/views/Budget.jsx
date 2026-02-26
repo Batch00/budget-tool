@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
+import { RotateCcw } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { formatCurrency } from '../utils/formatters'
+import { formatCurrency, formatMonthLabel } from '../utils/formatters'
 import { getCategoryPlanned, getTotalPlannedByType, getUnbudgetedAmount } from '../utils/budgetUtils'
 import BudgetEmptyState from '../components/budget/BudgetEmptyState'
 
@@ -58,8 +59,14 @@ function CategoryBudgetRow({ category, planned, onUpdate }) {
 export default function Budget() {
   const {
     categories, currentMonth, currentMonthBudget, currentMonthTransactions,
-    setBudgetAmount, budgets, copyBudget,
+    setBudgetAmount, budgets, copyBudget, resetMonthBudget,
   } = useApp()
+
+  const handleReset = () => {
+    if (window.confirm(`Reset the budget for ${formatMonthLabel(currentMonth)}? All planned amounts will be cleared.`)) {
+      resetMonthBudget(currentMonth)
+    }
+  }
 
   // "Start from scratch" bypass — lives only in component state, so navigating
   // away resets it. If the user saves nothing that session, the empty state
@@ -108,7 +115,17 @@ export default function Budget() {
     <div className="space-y-6 max-w-2xl">
       {/* Monthly summary */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Monthly Plan</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Monthly Plan</h3>
+          <button
+            onClick={handleReset}
+            title="Reset month budget"
+            className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 transition-colors"
+          >
+            <RotateCcw size={12} />
+            Reset
+          </button>
+        </div>
         <div className="space-y-2.5">
           <div className="flex justify-between text-sm">
             <span className="text-slate-600">Planned income</span>

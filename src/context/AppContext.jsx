@@ -62,6 +62,15 @@ export function AppProvider({ children }) {
     return budgets[monthKey] ?? { planned: {} }
   }, [budgets])
 
+  // Delete all planned amounts for a month (returns it to uninitialized state)
+  const resetMonthBudget = useCallback((monthKey) => {
+    setBudgets(prev => {
+      const next = { ...prev }
+      delete next[monthKey]
+      return next
+    })
+  }, [])
+
   // Copy all planned amounts from one month into another
   const copyBudget = useCallback((fromKey, toKey) => {
     setBudgets(prev => ({
@@ -161,6 +170,7 @@ export function AppProvider({ children }) {
     updateSubcategory,
     deleteSubcategory,
     moveCategory,
+    resetMonthBudget,
     copyBudget,
   }), [
     currentMonth, setCurrentMonth,
@@ -168,7 +178,7 @@ export function AppProvider({ children }) {
     budgets, currentMonthBudget,
     addTransaction, updateTransaction, deleteTransaction,
     setBudgetAmount, getMonthBudget,
-    copyBudget,
+    resetMonthBudget, copyBudget,
     addCategory, updateCategory, deleteCategory,
     addSubcategory, updateSubcategory, deleteSubcategory,
     moveCategory,
