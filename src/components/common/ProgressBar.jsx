@@ -8,10 +8,13 @@ const barColors = {
   none: 'bg-slate-300',
 }
 
-export default function ProgressBar({ spent, planned, showLabels = true, compact = false }) {
+// type: 'expense' (default) | 'income'
+export default function ProgressBar({ spent, planned, type = 'expense', showLabels = true, compact = false }) {
   const percent = getProgressPercent(spent, planned)
-  const status = getProgressStatus(spent, planned)
+  const status = getProgressStatus(spent, planned, type)
   const remaining = (planned ?? 0) - (spent ?? 0)
+
+  const isIncome = type === 'income'
 
   return (
     <div>
@@ -23,7 +26,7 @@ export default function ProgressBar({ spent, planned, showLabels = true, compact
       </div>
       {showLabels && !compact && (
         <div className="flex justify-between text-xs text-slate-500 mt-1">
-          <span>{formatCurrency(spent)} spent</span>
+          <span>{formatCurrency(spent)} {isIncome ? 'received' : 'spent'}</span>
           <span className={remaining < 0 ? 'text-red-500 font-medium' : ''}>
             {remaining < 0
               ? `${formatCurrency(Math.abs(remaining))} over`

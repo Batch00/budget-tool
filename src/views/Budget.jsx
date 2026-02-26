@@ -203,7 +203,7 @@ export default function Budget() {
           <div className="border-t border-slate-100 pt-2.5 flex justify-between text-sm font-semibold">
             <span className="text-slate-700">Unbudgeted</span>
             <span className={
-              unbudgeted === 0
+              Math.abs(unbudgeted) < 0.01
                 ? 'text-emerald-600'
                 : unbudgeted < 0
                   ? 'text-red-500'
@@ -213,7 +213,7 @@ export default function Budget() {
             </span>
           </div>
         </div>
-        {unbudgeted === 0 && plannedIncome > 0 && (
+        {Math.abs(unbudgeted) < 0.01 && plannedIncome > 0 && (
           <p className="mt-3 text-xs text-emerald-600 font-medium">Every dollar is assigned.</p>
         )}
       </div>

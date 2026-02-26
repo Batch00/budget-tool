@@ -31,6 +31,7 @@ function SummaryCard({ icon: Icon, label, amount, subtitle, colorClass }) {
 }
 
 function CategoryCard({ category, transactions, monthBudget }) {
+  const categoryType = category.type
   const [expanded, setExpanded] = useState(false)
 
   const spent = getCategorySpent(transactions, category.id)
@@ -70,7 +71,7 @@ function CategoryCard({ category, transactions, monthBudget }) {
             <span className="text-xs text-slate-400 ml-1">/ {formatCurrency(planned)}</span>
           </div>
         </div>
-        <ProgressBar spent={spent} planned={planned} />
+        <ProgressBar spent={spent} planned={planned} type={categoryType} />
       </div>
 
       {/* Subcategory breakdown (expanded) */}
@@ -91,7 +92,7 @@ function CategoryCard({ category, transactions, monthBudget }) {
                     <span className="text-slate-400 ml-1">/ {formatCurrency(subPlanned)}</span>
                   </span>
                 </div>
-                <ProgressBar spent={subSpent} planned={subPlanned} />
+                <ProgressBar spent={subSpent} planned={subPlanned} type={categoryType} />
               </div>
             )
           })}
@@ -154,18 +155,19 @@ export default function Dashboard() {
       </div>
 
       {/* Zero-based budget alert */}
-      {unbudgeted !== 0 && (
-        <div className={`rounded-xl p-4 text-sm font-medium ${
-          unbudgeted > 0
-            ? 'bg-amber-50 border border-amber-200 text-amber-800'
-            : 'bg-red-50 border border-red-200 text-red-800'
-        }`}>
-          {unbudgeted > 0
-            ? `You have ${formatCurrency(unbudgeted)} left to budget. Head to Budget to assign it.`
-            : `You've over-allocated ${formatCurrency(Math.abs(unbudgeted))} beyond your planned income.`
-          }
+      {Math.abs(unbudgeted) < 0.01 && plannedIncome > 0 ? (
+        <div className="rounded-xl p-4 text-sm font-medium bg-emerald-50 border border-emerald-200 text-emerald-800">
+          Every dollar is budgeted. You're all set!
         </div>
-      )}
+      ) : unbudgeted > 0.01 ? (
+        <div className="rounded-xl p-4 text-sm font-medium bg-amber-50 border border-amber-200 text-amber-800">
+          You have {formatCurrency(unbudgeted)} left to budget. Head to Budget to assign it.
+        </div>
+      ) : unbudgeted < -0.01 ? (
+        <div className="rounded-xl p-4 text-sm font-medium bg-red-50 border border-red-200 text-red-800">
+          You've over-allocated {formatCurrency(Math.abs(unbudgeted))} beyond your planned income.
+        </div>
+      ) : null}
 
       {/* Income categories */}
       {incomeCategories.length > 0 && (
