@@ -1,7 +1,12 @@
 export function getCategorySpent(transactions, categoryId) {
-  return transactions
-    .filter(t => t.categoryId === categoryId)
-    .reduce((sum, t) => sum + (t.amount ?? 0), 0)
+  return transactions.reduce((sum, t) => {
+    if (t.splits) {
+      return sum + t.splits
+        .filter(s => s.categoryId === categoryId)
+        .reduce((s, sp) => s + sp.amount, 0)
+    }
+    return sum + (t.categoryId === categoryId ? (t.amount ?? 0) : 0)
+  }, 0)
 }
 
 export function getCategoryPlanned(monthBudget, categoryId) {
@@ -15,9 +20,14 @@ export function getSubcategoryPlanned(monthBudget, subcategoryId) {
 
 // Amount spent on a specific subcategory
 export function getSubcategorySpent(transactions, subcategoryId) {
-  return transactions
-    .filter(t => t.subcategoryId === subcategoryId)
-    .reduce((sum, t) => sum + (t.amount ?? 0), 0)
+  return transactions.reduce((sum, t) => {
+    if (t.splits) {
+      return sum + t.splits
+        .filter(s => s.subcategoryId === subcategoryId)
+        .reduce((s, sp) => s + sp.amount, 0)
+    }
+    return sum + (t.subcategoryId === subcategoryId ? (t.amount ?? 0) : 0)
+  }, 0)
 }
 
 // Effective planned for a category:
