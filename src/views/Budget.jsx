@@ -57,33 +57,38 @@ function CategoryBudgetRow({ category, planned, onUpdate }) {
 
 export default function Budget() {
   const {
-    categories, currentMonth, currentMonthBudget, setBudgetAmount,
-    budgets, initializeMonth, copyBudget,
+    categories, currentMonth, currentMonthBudget, currentMonthTransactions,
+    setBudgetAmount, budgets, copyBudget,
   } = useApp()
 
-  // A month is "uninitialized" until the user explicitly sets it up
-  const isUninitialized = budgets[currentMonth] === undefined
+  // "Start from scratch" bypass — lives only in component state, so navigating
+  // away resets it. If the user saves nothing that session, the empty state
+  // reappears on their next visit, which is the desired behaviour.
+  const [bypassEmptyState, setBypassEmptyState] = useState(false)
 
-  // Most recent previous month that has at least one planned amount
-  const previousMonthKey = useMemo(() => {
-    return Object.keys(budgets)
-      .filter(k => k < currentMonth && Object.keys(budgets[k]?.planned ?? {}).length > 0)
-      .sort()
-      .reverse()[0] ?? null
+  // A month has usable budget data when at least one planned amount is non-zero.
+  const monthHasBudget = Object.values(budgets[currentMonth]?.planned ?? {}).some(v => v > 0)
+  const monthHasTransactions = currentMonthTransactions.length > 0
+  const isUninitialized = !monthHasBudget && !monthHasTransactions && !bypassEmptyState
+
+  // Nearest months (in either direction) that have at least one non-zero planned amount
+  const { prevMonth, nextMonth } = useMemo(() => {
+    const keysWithData = Object.keys(budgets).filter(k =>
+      Object.values(budgets[k]?.planned ?? {}).some(v => v > 0)
+    )
+    const prev = keysWithData.filter(k => k < currentMonth).sort().reverse()[0] ?? null
+    const next = keysWithData.filter(k => k > currentMonth).sort()[0] ?? null
+    return { prevMonth: prev, nextMonth: next }
   }, [budgets, currentMonth])
-
-  const handleCopy = () => {
-    if (previousMonthKey) copyBudget(previousMonthKey, currentMonth)
-    else initializeMonth(currentMonth)
-  }
 
   if (isUninitialized) {
     return (
       <BudgetEmptyState
         currentMonth={currentMonth}
-        previousMonth={previousMonthKey}
-        onCopy={handleCopy}
-        onScratch={() => initializeMonth(currentMonth)}
+        prevMonth={prevMonth}
+        nextMonth={nextMonth}
+        onCopy={(sourceKey) => copyBudget(sourceKey, currentMonth)}
+        onScratch={() => setBypassEmptyState(true)}
       />
     )
   }
