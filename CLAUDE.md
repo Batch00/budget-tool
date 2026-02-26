@@ -25,7 +25,7 @@ npm run preview  # preview production build
 
 ## Architecture
 - **`src/context/AppContext.jsx`** — single source of truth for all app state: `categories`, `transactions`, `budgets`, `currentMonth`. Persists everything to localStorage via `useEffect`. All CRUD operations live here. Import `useApp()` hook anywhere in the tree.
-- **`src/utils/budgetUtils.js`** — pure functions for calculating spent amounts, progress percentages, and zero-based unbudgeted amount.
+- **`src/utils/budgetUtils.js`** — pure functions for calculating spent amounts, progress percentages, and zero-based unbudgeted amount. `getCategorySpent` / `getSubcategorySpent` handle both flat and split transactions. `getProgressStatus(spent, planned, type)` accepts `'income'|'expense'` and uses a 50% yellow threshold.
 - **`src/utils/formatters.js`** — `formatCurrency()`, `formatDate()`, `formatMonthLabel()`, `getMonthKey()`.
 - **`src/utils/storage.js`** — thin wrappers around `localStorage` with error handling.
 - **`src/data/defaultCategories.js`** — loaded once on first run; has fixed string IDs so budget data survives a localStorage clear-and-reload.
@@ -36,8 +36,17 @@ npm run preview  # preview production build
 // Category
 { id, name, type: 'income'|'expense', color, subcategories: [{ id, name }] }
 
-// Transaction
+// Transaction (flat — single category)
 { id, date, amount, type: 'income'|'expense', categoryId, subcategoryId, merchant, notes }
+
+// Transaction (split — multiple categories)
+// categoryId: null signals a split transaction; type/amount stay at top level
+{
+  id, date, amount, type, merchant, notes,
+  categoryId: null,
+  subcategoryId: null,
+  splits: [{ categoryId, subcategoryId, amount }, ...]
+}
 
 // Budgets — one object keyed by YYYY-MM monthKey
 { [monthKey]: { planned: { [categoryId]: number } } }
@@ -54,11 +63,16 @@ npm run preview  # preview production build
 4. Dashboard with planned vs actual vs remaining ✅
 5. Category/subcategory management ✅
 6. Analytics and charts ✅
+7. Split transactions (one transaction across multiple categories) ✅
 
 ## Design Guidelines
 - Clean and modern, mobile-friendly
 - Sidebar navigation, card-based layouts
-- Color coding: green = on track, yellow = nearing limit, red = over budget
+- Color coding (progress bars):
+  - **Expense**: green < 50% spent, yellow 50–99%, red ≥ 100%
+  - **Income**: neutral < 50% received, yellow 50–99%, green = 100% (goal reached)
+  - Labels say "received" for income, "spent" for expense
+- Unbudgeted/balanced check uses `Math.abs(val) < 0.01` to guard against floating-point drift
 - Inspiration: EveryDollar, Mint
 
 ## Notes for Claude
