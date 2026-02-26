@@ -15,18 +15,17 @@ import BudgetEmptyState from '../components/budget/BudgetEmptyState'
 
 function AmountInput({ value: planned, onUpdate, inputClass = '', displayClass = '' }) {
   const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState(String(planned))
+  const [value, setValue] = useState('')
 
   const commit = () => {
     const num = Math.max(0, parseFloat(value) || 0)
     onUpdate(num)
-    setValue(String(num))
     setEditing(false)
   }
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') e.target.blur()
-    if (e.key === 'Escape') { setValue(String(planned)); setEditing(false) }
+    if (e.key === 'Escape') { setEditing(false) }
   }
 
   if (editing) {
@@ -34,6 +33,7 @@ function AmountInput({ value: planned, onUpdate, inputClass = '', displayClass =
       <input
         type="number"
         min="0"
+        step="0.01"
         value={value}
         onChange={e => setValue(e.target.value)}
         onBlur={commit}
@@ -46,7 +46,7 @@ function AmountInput({ value: planned, onUpdate, inputClass = '', displayClass =
 
   return (
     <button
-      onClick={() => { setEditing(true); setValue(String(planned)) }}
+      onClick={() => { setEditing(true); setValue(planned > 0 ? String(planned) : '') }}
       className={`w-32 text-right text-sm px-2.5 py-1 rounded-lg hover:bg-slate-100 transition-colors ${displayClass}`}
     >
       {planned > 0
