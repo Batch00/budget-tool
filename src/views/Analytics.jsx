@@ -9,7 +9,7 @@ import { TrendingUp, TrendingDown, Wallet, Hash } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { formatCurrency, formatMonthLabel, getMonthKey } from '../utils/formatters'
 import {
-  getCategorySpent, getCategoryPlanned,
+  getCategorySpent, getCategoryEffectivePlanned,
   getTotalByType, getTotalPlannedByType,
 } from '../utils/budgetUtils'
 
@@ -141,7 +141,7 @@ function MonthView({ categories, transactions, budget }) {
         name: cat.name,
         color: cat.color,
         spent: getCategorySpent(transactions, cat.id),
-        planned: getCategoryPlanned(budget, cat.id),
+        planned: getCategoryEffectivePlanned(cat, budget),
         txns: transactions.filter(t => t.categoryId === cat.id).length,
       }))
       .filter(d => d.spent > 0 || d.planned > 0)

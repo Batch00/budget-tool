@@ -1,14 +1,37 @@
 import { useState } from 'react'
-import { Plus, ChevronDown, ChevronRight, Pencil, Trash2, ArrowUp, ArrowDown, Check, X } from 'lucide-react'
+import {
+  DndContext, closestCenter,
+  KeyboardSensor, PointerSensor, useSensor, useSensors,
+} from '@dnd-kit/core'
+import {
+  SortableContext, sortableKeyboardCoordinates,
+  verticalListSortingStrategy, useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import {
+  Plus, ChevronDown, ChevronRight,
+  Pencil, Trash2, ArrowUp, ArrowDown,
+  Check, X, GripVertical,
+} from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import CategoryModal from '../components/categories/CategoryModal'
 
-// ── SubcategoryRow ─────────────────────────────────────────────────────────────
+// ── SortableSubcategoryRow ────────────────────────────────────────────────────
 
-function SubcategoryRow({ categoryId, sub, transactionCount }) {
+function SortableSubcategoryRow({ categoryId, sub, transactionCount }) {
   const { updateSubcategory, deleteSubcategory } = useApp()
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(sub.name)
+
+  const {
+    attributes, listeners, setNodeRef, setActivatorNodeRef,
+    transform, transition, isDragging,
+  } = useSortable({ id: sub.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
 
   const startEdit = () => { setValue(sub.name); setEditing(true) }
 
@@ -32,7 +55,25 @@ function SubcategoryRow({ categoryId, sub, transactionCount }) {
   }
 
   return (
-    <div className="flex items-center gap-2 group px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-1.5 group px-2 py-1.5 rounded-lg transition-colors ${
+        isDragging ? 'opacity-50 bg-slate-100' : 'hover:bg-slate-50'
+      }`}
+    >
+      {/* Drag handle */}
+      <button
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        className="flex-shrink-0 p-0.5 text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing touch-none"
+        aria-label="Drag to reorder"
+        tabIndex={-1}
+      >
+        <GripVertical size={13} />
+      </button>
+
       <div className="w-1.5 h-1.5 rounded-full bg-slate-200 flex-shrink-0" />
 
       {editing ? (
@@ -117,7 +158,7 @@ function AddSubcategoryInput({ onAdd, onCancel }) {
 // ── CategoryCard ───────────────────────────────────────────────────────────────
 
 function CategoryCard({ category, isFirst, isLast, transactions, onEdit, onDelete, onMove }) {
-  const { addSubcategory } = useApp()
+  const { addSubcategory, moveSubcategory } = useApp()
   const [expanded, setExpanded] = useState(false)
   const [addingSubcat, setAddingSubcat] = useState(false)
 
@@ -127,17 +168,26 @@ function CategoryCard({ category, isFirst, isLast, transactions, onEdit, onDelet
   const getSubTransactionCount = (subId) =>
     transactions.filter(t => t.subcategoryId === subId).length
 
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
+
+  const handleSubcatDragEnd = ({ active, over }) => {
+    if (over && active.id !== over.id) {
+      moveSubcategory(category.id, active.id, over.id)
+    }
+  }
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
       {/* Category header row */}
       <div className="flex items-center gap-2.5 px-4 py-3 hover:bg-slate-50 transition-colors">
-        {/* Color dot */}
         <div
           className="w-3 h-3 rounded-full flex-shrink-0"
           style={{ backgroundColor: category.color }}
         />
 
-        {/* Expand toggle + name */}
         <button
           onClick={() => setExpanded(e => !e)}
           className="flex-1 flex items-center gap-2 text-left min-w-0"
@@ -164,7 +214,6 @@ function CategoryCard({ category, isFirst, isLast, transactions, onEdit, onDelet
           </span>
         </button>
 
-        {/* Action buttons */}
         <div className="flex items-center gap-0.5 flex-shrink-0">
           <button
             onClick={() => onMove('up')}
@@ -201,19 +250,30 @@ function CategoryCard({ category, isFirst, isLast, transactions, onEdit, onDelet
 
       {/* Subcategory panel */}
       {expanded && (
-        <div className="border-t border-slate-100 px-2 py-2 space-y-0.5">
+        <div className="border-t border-slate-100 px-2 py-2">
           {category.subcategories.length === 0 && !addingSubcat && (
             <p className="text-xs text-slate-400 px-3 py-1.5">No subcategories yet.</p>
           )}
 
-          {category.subcategories.map(sub => (
-            <SubcategoryRow
-              key={sub.id}
-              categoryId={category.id}
-              sub={sub}
-              transactionCount={getSubTransactionCount(sub.id)}
-            />
-          ))}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleSubcatDragEnd}
+          >
+            <SortableContext
+              items={category.subcategories.map(s => s.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {category.subcategories.map(sub => (
+                <SortableSubcategoryRow
+                  key={sub.id}
+                  categoryId={category.id}
+                  sub={sub}
+                  transactionCount={getSubTransactionCount(sub.id)}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
 
           {addingSubcat ? (
             <AddSubcategoryInput
@@ -239,12 +299,8 @@ function CategoryCard({ category, isFirst, isLast, transactions, onEdit, onDelet
 
 export default function Categories() {
   const {
-    categories,
-    transactions,
-    addCategory,
-    updateCategory,
-    deleteCategory,
-    moveCategory,
+    categories, transactions,
+    addCategory, updateCategory, deleteCategory, moveCategory,
   } = useApp()
 
   const [modalOpen, setModalOpen] = useState(false)
@@ -294,11 +350,8 @@ export default function Categories() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      {/* Toolbar */}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500">
-          {categories.length} categories
-        </p>
+        <p className="text-sm text-slate-500">{categories.length} categories</p>
         <button
           onClick={openAdd}
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"

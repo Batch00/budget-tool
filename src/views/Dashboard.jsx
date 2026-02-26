@@ -1,14 +1,17 @@
+import { useState } from 'react'
+import { ChevronDown, ChevronRight, TrendingUp, TrendingDown, Wallet, Target } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { formatCurrency } from '../utils/formatters'
 import {
   getCategorySpent,
-  getCategoryPlanned,
+  getCategoryEffectivePlanned,
+  getSubcategorySpent,
+  getSubcategoryPlanned,
   getTotalByType,
   getTotalPlannedByType,
   getUnbudgetedAmount,
 } from '../utils/budgetUtils'
 import ProgressBar from '../components/common/ProgressBar'
-import { TrendingUp, TrendingDown, Wallet, Target } from 'lucide-react'
 
 function SummaryCard({ icon: Icon, label, amount, subtitle, colorClass }) {
   return (
@@ -27,22 +30,73 @@ function SummaryCard({ icon: Icon, label, amount, subtitle, colorClass }) {
   )
 }
 
-function CategoryCard({ category, transactions, planned }) {
+function CategoryCard({ category, transactions, monthBudget }) {
+  const [expanded, setExpanded] = useState(false)
+
   const spent = getCategorySpent(transactions, category.id)
+  const planned = getCategoryEffectivePlanned(category, monthBudget)
+
+  const hasSubcategories = category.subcategories.length > 0
+
+  // Only show subcategories that have planned or actual spending
+  const visibleSubcategories = category.subcategories.filter(sub => {
+    const subSpent = getSubcategorySpent(transactions, sub.id)
+    const subPlanned = getSubcategoryPlanned(monthBudget, sub.id)
+    return subSpent > 0 || subPlanned > 0
+  })
 
   return (
-    <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: category.color }} />
-          <h3 className="text-sm font-medium text-slate-800">{category.name}</h3>
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      {/* Category header */}
+      <div className="p-5">
+        <div className="flex items-center justify-between mb-3">
+          <button
+            onClick={() => hasSubcategories && setExpanded(e => !e)}
+            className={`flex items-center gap-2 text-left ${hasSubcategories ? 'cursor-pointer' : 'cursor-default'}`}
+          >
+            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: category.color }} />
+            <h3 className="text-sm font-medium text-slate-800">{category.name}</h3>
+            {hasSubcategories && (
+              <span className="text-slate-400">
+                {expanded
+                  ? <ChevronDown size={13} />
+                  : <ChevronRight size={13} />
+                }
+              </span>
+            )}
+          </button>
+          <div className="text-right">
+            <span className="text-sm font-semibold text-slate-800">{formatCurrency(spent)}</span>
+            <span className="text-xs text-slate-400 ml-1">/ {formatCurrency(planned)}</span>
+          </div>
         </div>
-        <div className="text-right">
-          <span className="text-sm font-semibold text-slate-800">{formatCurrency(spent)}</span>
-          <span className="text-xs text-slate-400 ml-1">/ {formatCurrency(planned)}</span>
-        </div>
+        <ProgressBar spent={spent} planned={planned} />
       </div>
-      <ProgressBar spent={spent} planned={planned} />
+
+      {/* Subcategory breakdown (expanded) */}
+      {expanded && visibleSubcategories.length > 0 && (
+        <div className="border-t border-slate-100 px-5 py-3 space-y-3">
+          {visibleSubcategories.map(sub => {
+            const subSpent = getSubcategorySpent(transactions, sub.id)
+            const subPlanned = getSubcategoryPlanned(monthBudget, sub.id)
+            return (
+              <div key={sub.id}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs text-slate-500 flex items-center gap-1.5">
+                    <span className="w-1 h-1 rounded-full bg-slate-300 inline-block" />
+                    {sub.name}
+                  </span>
+                  <span className="text-xs">
+                    <span className="font-medium text-slate-700">{formatCurrency(subSpent)}</span>
+                    <span className="text-slate-400 ml-1">/ {formatCurrency(subPlanned)}</span>
+                  </span>
+                </div>
+                <ProgressBar spent={subSpent} planned={subPlanned} />
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -123,7 +177,7 @@ export default function Dashboard() {
                 key={cat.id}
                 category={cat}
                 transactions={currentMonthTransactions}
-                planned={getCategoryPlanned(currentMonthBudget, cat.id)}
+                monthBudget={currentMonthBudget}
               />
             ))}
           </div>
@@ -140,7 +194,7 @@ export default function Dashboard() {
                 key={cat.id}
                 category={cat}
                 transactions={currentMonthTransactions}
-                planned={getCategoryPlanned(currentMonthBudget, cat.id)}
+                monthBudget={currentMonthBudget}
               />
             ))}
           </div>

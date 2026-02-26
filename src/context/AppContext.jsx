@@ -71,11 +71,42 @@ export function AppProvider({ children }) {
     })
   }, [])
 
-  // Copy all planned amounts from one month into another
+  // Set planned amount for a single subcategory
+  const setSubcategoryBudgetAmount = useCallback((monthKey, subcategoryId, amount) => {
+    setBudgets(prev => ({
+      ...prev,
+      [monthKey]: {
+        planned: prev[monthKey]?.planned ?? {},
+        subcategoryPlanned: {
+          ...(prev[monthKey]?.subcategoryPlanned ?? {}),
+          [subcategoryId]: amount,
+        },
+      },
+    }))
+  }, [])
+
+  // Copy all planned amounts (category + subcategory) from one month into another
   const copyBudget = useCallback((fromKey, toKey) => {
     setBudgets(prev => ({
       ...prev,
-      [toKey]: { planned: { ...(prev[fromKey]?.planned ?? {}) } },
+      [toKey]: {
+        planned: { ...(prev[fromKey]?.planned ?? {}) },
+        subcategoryPlanned: { ...(prev[fromKey]?.subcategoryPlanned ?? {}) },
+      },
+    }))
+  }, [])
+
+  // Reorder a subcategory within its parent category
+  const moveSubcategory = useCallback((categoryId, fromSubId, toSubId) => {
+    setCategories(prev => prev.map(c => {
+      if (c.id !== categoryId) return c
+      const subs = [...c.subcategories]
+      const fromIdx = subs.findIndex(s => s.id === fromSubId)
+      const toIdx = subs.findIndex(s => s.id === toSubId)
+      if (fromIdx === -1 || toIdx === -1) return c
+      const [item] = subs.splice(fromIdx, 1)
+      subs.splice(toIdx, 0, item)
+      return { ...c, subcategories: subs }
     }))
   }, [])
 
@@ -171,14 +202,16 @@ export function AppProvider({ children }) {
     deleteSubcategory,
     moveCategory,
     resetMonthBudget,
+    setSubcategoryBudgetAmount,
     copyBudget,
+    moveSubcategory,
   }), [
     currentMonth, setCurrentMonth,
     categories, transactions, currentMonthTransactions,
     budgets, currentMonthBudget,
     addTransaction, updateTransaction, deleteTransaction,
     setBudgetAmount, getMonthBudget,
-    resetMonthBudget, copyBudget,
+    resetMonthBudget, setSubcategoryBudgetAmount, copyBudget, moveSubcategory,
     addCategory, updateCategory, deleteCategory,
     addSubcategory, updateSubcategory, deleteSubcategory,
     moveCategory,
