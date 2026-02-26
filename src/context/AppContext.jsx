@@ -62,6 +62,22 @@ export function AppProvider({ children }) {
     return budgets[monthKey] ?? { planned: {} }
   }, [budgets])
 
+  // Mark a month as explicitly set up (even if all amounts stay at $0)
+  const initializeMonth = useCallback((monthKey) => {
+    setBudgets(prev => ({
+      ...prev,
+      [monthKey]: prev[monthKey] ?? { planned: {} },
+    }))
+  }, [])
+
+  // Copy all planned amounts from one month into another
+  const copyBudget = useCallback((fromKey, toKey) => {
+    setBudgets(prev => ({
+      ...prev,
+      [toKey]: { planned: { ...(prev[fromKey]?.planned ?? {}) } },
+    }))
+  }, [])
+
   // ── Categories ────────────────────────────────────────────────────────────
 
   const addCategory = useCallback((category) => {
@@ -153,12 +169,15 @@ export function AppProvider({ children }) {
     updateSubcategory,
     deleteSubcategory,
     moveCategory,
+    initializeMonth,
+    copyBudget,
   }), [
     currentMonth, setCurrentMonth,
     categories, transactions, currentMonthTransactions,
     budgets, currentMonthBudget,
     addTransaction, updateTransaction, deleteTransaction,
     setBudgetAmount, getMonthBudget,
+    initializeMonth, copyBudget,
     addCategory, updateCategory, deleteCategory,
     addSubcategory, updateSubcategory, deleteSubcategory,
     moveCategory,

@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { formatCurrency } from '../utils/formatters'
 import { getCategoryPlanned, getTotalPlannedByType, getUnbudgetedAmount } from '../utils/budgetUtils'
+import BudgetEmptyState from '../components/budget/BudgetEmptyState'
 
 function CategoryBudgetRow({ category, planned, onUpdate }) {
   const [editing, setEditing] = useState(false)
@@ -55,7 +56,37 @@ function CategoryBudgetRow({ category, planned, onUpdate }) {
 }
 
 export default function Budget() {
-  const { categories, currentMonth, currentMonthBudget, setBudgetAmount } = useApp()
+  const {
+    categories, currentMonth, currentMonthBudget, setBudgetAmount,
+    budgets, initializeMonth, copyBudget,
+  } = useApp()
+
+  // A month is "uninitialized" until the user explicitly sets it up
+  const isUninitialized = budgets[currentMonth] === undefined
+
+  // Most recent previous month that has at least one planned amount
+  const previousMonthKey = useMemo(() => {
+    return Object.keys(budgets)
+      .filter(k => k < currentMonth && Object.keys(budgets[k]?.planned ?? {}).length > 0)
+      .sort()
+      .reverse()[0] ?? null
+  }, [budgets, currentMonth])
+
+  const handleCopy = () => {
+    if (previousMonthKey) copyBudget(previousMonthKey, currentMonth)
+    else initializeMonth(currentMonth)
+  }
+
+  if (isUninitialized) {
+    return (
+      <BudgetEmptyState
+        currentMonth={currentMonth}
+        previousMonth={previousMonthKey}
+        onCopy={handleCopy}
+        onScratch={() => initializeMonth(currentMonth)}
+      />
+    )
+  }
 
   const incomeCategories = categories.filter(c => c.type === 'income')
   const expenseCategories = categories.filter(c => c.type === 'expense')
