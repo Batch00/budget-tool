@@ -306,6 +306,73 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
     ? selectedLabels.join(', ')
     : `${selectedLabels.length} items selected`
 
+  // Render a single selectable row (subcategory or standalone category).
+  // When selected: shows an inline amount input instead of budget remaining so
+  // adding/removing selections never changes layout outside the picker panel.
+  const renderPickerRow = ({ key, catId, subId, name, rem, isSelected, toggleFn, indent }) => {
+    const existingSplit = isSelected
+      ? form.splits.find(s => s.categoryId === catId && (subId ? s.subcategoryId === subId : !s.subcategoryId))
+      : null
+    const remStr = formatBudgetRemaining(rem)
+    return (
+      <div
+        key={key}
+        className={`flex items-center gap-2 ${indent} py-2 text-sm transition-colors ${
+          isSelected ? 'bg-indigo-50' : 'hover:bg-slate-50'
+        }`}
+      >
+        {/* Checkbox + name — clicking this area toggles selection */}
+        <button
+          type="button"
+          onClick={toggleFn}
+          className="flex items-center gap-2 flex-1 min-w-0 text-left"
+        >
+          <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+            isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 bg-white'
+          }`}>
+            {isSelected && <Check size={10} className="text-white" />}
+          </span>
+          <span className={`flex-1 truncate ${
+            isSelected ? 'text-indigo-700 font-medium' : `text-slate-700${!subId ? ' font-medium' : ''}`
+          }`}>
+            {name}
+          </span>
+        </button>
+
+        {/* Right side: amount input when selected, budget remaining when not */}
+        {isSelected && existingSplit ? (
+          <>
+            <div className="relative w-20 flex-shrink-0">
+              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs select-none">$</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={existingSplit.amount}
+                onChange={e => setSplitAmount(existingSplit.id, e.target.value)}
+                onBlur={() => formatAmountOnBlur(existingSplit.amount, v => setSplitAmount(existingSplit.id, v))}
+                className="w-full pl-5 pr-1 py-1 text-xs border border-indigo-200 rounded-md bg-white text-slate-800 outline-none focus:ring-1 focus:ring-indigo-300"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => removeSplit(existingSplit.id)}
+              className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
+            >
+              <X size={12} />
+            </button>
+          </>
+        ) : (
+          remStr !== null && (
+            <span className={`text-xs tabular-nums flex-shrink-0 ${rem < 0 ? 'text-red-400' : 'text-slate-400'}`}>
+              {remStr}
+            </span>
+          )
+        )}
+      </div>
+    )
+  }
+
   // Render one group of categories (income or expense)
   const renderCategoryGroup = (cats) =>
     cats.map(cat => (
@@ -316,67 +383,28 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
             <div className="px-3 pt-2.5 pb-1 text-[10px] font-bold tracking-widest uppercase text-indigo-500 select-none">
               {cat.name}
             </div>
-            {cat.subcategories.map(sub => {
-              const selected = isSubSelected(cat.id, sub.id)
-              const rem = getSubRemainingDisplay(sub.id)
-              const remStr = formatBudgetRemaining(rem)
-              return (
-                <button
-                  key={sub.id}
-                  type="button"
-                  onClick={() => toggleSubItem(cat.id, sub.id)}
-                  className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
-                    selected ? 'bg-indigo-50' : 'hover:bg-slate-50'
-                  }`}
-                >
-                  {/* Checkbox indicator */}
-                  <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
-                    selected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 bg-white'
-                  }`}>
-                    {selected && <Check size={10} className="text-white" />}
-                  </span>
-                  <span className={`flex-1 text-left truncate ${selected ? 'text-indigo-700 font-medium' : 'text-slate-700'}`}>
-                    {sub.name}
-                  </span>
-                  {remStr !== null && (
-                    <span className={`text-xs tabular-nums flex-shrink-0 ${rem < 0 ? 'text-red-400' : 'text-slate-400'}`}>
-                      {remStr}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
+            {cat.subcategories.map(sub => renderPickerRow({
+              key: sub.id,
+              catId: cat.id,
+              subId: sub.id,
+              name: sub.name,
+              rem: getSubRemainingDisplay(sub.id),
+              isSelected: isSubSelected(cat.id, sub.id),
+              toggleFn: () => toggleSubItem(cat.id, sub.id),
+              indent: 'px-4',
+            }))}
           </>
         ) : (
-          // Category with no subcategories — selectable directly
-          (() => {
-            const selected = isCatSelected(cat.id)
-            const rem = getCatRemainingDisplay(cat)
-            const remStr = formatBudgetRemaining(rem)
-            return (
-              <button
-                type="button"
-                onClick={() => toggleCatItem(cat.id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
-                  selected ? 'bg-indigo-50' : 'hover:bg-slate-50'
-                }`}
-              >
-                <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
-                  selected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 bg-white'
-                }`}>
-                  {selected && <Check size={10} className="text-white" />}
-                </span>
-                <span className={`flex-1 text-left truncate font-medium ${selected ? 'text-indigo-700' : 'text-slate-700'}`}>
-                  {cat.name}
-                </span>
-                {remStr !== null && (
-                  <span className={`text-xs tabular-nums flex-shrink-0 ${rem < 0 ? 'text-red-400' : 'text-slate-400'}`}>
-                    {remStr}
-                  </span>
-                )}
-              </button>
-            )
-          })()
+          renderPickerRow({
+            key: cat.id,
+            catId: cat.id,
+            subId: null,
+            name: cat.name,
+            rem: getCatRemainingDisplay(cat),
+            isSelected: isCatSelected(cat.id),
+            toggleFn: () => toggleCatItem(cat.id),
+            indent: 'px-3',
+          })
         )}
       </div>
     ))
@@ -539,54 +567,6 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
                 {(lockedType || incomeVisible.length === 0 || expenseVisible.length === 0) && (
                   renderCategoryGroup(visibleCategories)
                 )}
-              </div>
-            )}
-
-            {/* Selected splits summary with amount inputs */}
-            {form.splits.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {form.splits.map(split => {
-                  const cat = categories.find(c => c.id === split.categoryId)
-                  const sub = cat?.subcategories.find(s => s.id === split.subcategoryId)
-                  const itemName = sub?.name ?? cat?.name ?? '—'
-                  const parentName = sub ? cat?.name : null
-
-                  return (
-                    <div key={split.id} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
-                      {/* Item label */}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-slate-800 truncate">{itemName}</div>
-                        {parentName && (
-                          <div className="text-xs text-slate-400 truncate">{parentName}</div>
-                        )}
-                      </div>
-
-                      {/* Amount input */}
-                      <div className="relative w-28 flex-shrink-0">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm select-none">$</span>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="0.00"
-                          value={split.amount}
-                          onChange={e => setSplitAmount(split.id, e.target.value)}
-                          onBlur={() => formatAmountOnBlur(split.amount, v => setSplitAmount(split.id, v))}
-                          className="w-full pl-7 pr-2 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-colors bg-white"
-                        />
-                      </div>
-
-                      {/* Remove button */}
-                      <button
-                        type="button"
-                        onClick={() => removeSplit(split.id)}
-                        title="Remove"
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  )
-                })}
               </div>
             )}
 
