@@ -142,7 +142,9 @@ function MonthView({ categories, transactions, budget }) {
         color: cat.color,
         spent: getCategorySpent(transactions, cat.id),
         planned: getCategoryEffectivePlanned(cat, budget),
-        txns: transactions.filter(t => t.categoryId === cat.id).length,
+        txns: transactions.filter(t =>
+          t.splits ? t.splits.some(s => s.categoryId === cat.id) : t.categoryId === cat.id
+        ).length,
       }))
       .filter(d => d.spent > 0 || d.planned > 0)
       .sort((a, b) => b.spent - a.spent)
@@ -255,7 +257,7 @@ function MonthView({ categories, transactions, budget }) {
         {/* Top spending categories */}
         <SectionCard
           title="Top Categories"
-          subtitle="Ranked by spending · txn count shown on right"
+          subtitle="Ranked by spending · transaction count shown on right"
         >
           {categoryData.length === 0 ? (
             <EmptyChart message="No spending data yet." />
@@ -272,7 +274,7 @@ function MonthView({ categories, transactions, budget }) {
                         <span className="truncate">{d.name}</span>
                       </span>
                       <span className="flex items-center gap-2 flex-shrink-0 text-xs">
-                        <span className="text-slate-400">{d.txns} txn{d.txns !== 1 ? 's' : ''}</span>
+                        <span className="text-slate-400">{d.txns} transaction{d.txns !== 1 ? 's' : ''}</span>
                         <span className="font-semibold text-slate-800">{formatCurrency(d.spent)}</span>
                       </span>
                     </div>
@@ -447,7 +449,7 @@ function TrendsView({ categories, transactions, budgets }) {
                 <th className="text-right py-2 px-1 font-semibold text-slate-500">Expenses</th>
                 <th className="text-right py-2 px-1 font-semibold text-slate-500">Planned</th>
                 <th className="text-right py-2 px-1 font-semibold text-slate-500">Net</th>
-                <th className="text-right py-2 px-1 font-semibold text-slate-500">Txns</th>
+                <th className="text-right py-2 px-1 font-semibold text-slate-500">Transactions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
