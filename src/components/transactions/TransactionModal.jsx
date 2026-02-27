@@ -1,7 +1,13 @@
 import { useState, useEffect } from 'react'
-import { X, Plus, Trash2 } from 'lucide-react'
+import { X, ChevronDown, Check } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { getTodayString } from '../../utils/formatters'
+import {
+  getSubcategoryPlanned,
+  getSubcategorySpent,
+  getCategoryEffectivePlanned,
+  getCategorySpent,
+} from '../../utils/budgetUtils'
 
 let _splitIdCounter = 0
 const newSplitId = () => `split-${++_splitIdCounter}`
@@ -11,21 +17,28 @@ const emptyForm = () => ({
   date: getTodayString(),
   merchant: '',
   notes: '',
-  splits: [{ id: newSplitId(), categoryId: '', subcategoryId: '', amount: '' }],
+  splits: [],
 })
 
 export default function TransactionModal({ isOpen, onClose, editingTransaction = null }) {
-  const { categories, addTransaction, updateTransaction } = useApp()
+  const {
+    categories,
+    addTransaction,
+    updateTransaction,
+    currentMonthTransactions,
+    currentMonthBudget,
+    currentMonth,
+  } = useApp()
 
   const [form, setForm] = useState(emptyForm)
   const [errors, setErrors] = useState({})
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   // Populate form when modal opens
   useEffect(() => {
     if (!isOpen) return
     if (editingTransaction) {
       if (editingTransaction.splits) {
-        // Split transaction — restore split rows
         setForm({
           amount: String(editingTransaction.amount),
           date: editingTransaction.date,
@@ -39,7 +52,6 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
           })),
         })
       } else {
-        // Flat transaction — single split row
         setForm({
           amount: String(editingTransaction.amount),
           date: editingTransaction.date,
@@ -54,9 +66,14 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
         })
       }
     } else {
-      setForm(emptyForm())
+      // Default date to today if it falls within the viewed month; otherwise use the 1st of that month.
+      // This prevents transactions from silently landing in the wrong month when the user is browsing history.
+      const todayStr = getTodayString()
+      const defaultDate = todayStr.startsWith(currentMonth) ? todayStr : `${currentMonth}-01`
+      setForm({ ...emptyForm(), date: defaultDate })
     }
     setErrors({})
+    setPickerOpen(false)
   }, [isOpen, editingTransaction])
 
   // Derive the locked type from the first split that has a category selected
@@ -68,12 +85,10 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
     return null
   })()
 
-  const filteredCategories = lockedType
-    ? categories.filter(c => c.type === lockedType)
-    : categories
-
-  const incomeCategories = filteredCategories.filter(c => c.type === 'income')
-  const expenseCategories = filteredCategories.filter(c => c.type === 'expense')
+  // Base transactions excluding the editing transaction (for accurate "remaining budget" display)
+  const baseTransactions = editingTransaction
+    ? currentMonthTransactions.filter(t => t.id !== editingTransaction.id)
+    : currentMonthTransactions
 
   const totalAmount = parseFloat(form.amount) || 0
   const assignedAmount = form.splits.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
@@ -92,46 +107,117 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: null }))
   }
 
-  // Update a specific split row field
-  const setSplitField = (id, field, value) => {
+  // Format a raw amount string to two decimal places on blur (e.g. "50" → "50.00")
+  const formatAmountOnBlur = (value, setter) => {
+    const num = parseFloat(value)
+    if (!isNaN(num) && num > 0) setter(num.toFixed(2))
+  }
+
+  // Update the amount field on a specific split row
+  const setSplitAmount = (id, value) => {
     setForm(prev => ({
       ...prev,
-      splits: prev.splits.map(s => {
-        if (s.id !== id) return s
-        const updated = { ...s, [field]: value }
-        // Reset subcategory when category changes
-        if (field === 'categoryId') updated.subcategoryId = ''
-        return updated
-      }),
+      splits: prev.splits.map(s => s.id !== id ? s : { ...s, amount: value }),
     }))
     if (errors.splits) setErrors(prev => ({ ...prev, splits: null }))
   }
 
-  const addSplitRow = () => {
-    const pre = Math.max(0, remaining)
-    setForm(prev => ({
-      ...prev,
-      splits: [
-        ...prev.splits,
-        { id: newSplitId(), categoryId: '', subcategoryId: '', amount: pre > 0 ? String(pre) : '' },
-      ],
-    }))
+  // Remove a split row (also deselects it in the picker)
+  const removeSplit = (id) => {
+    setForm(prev => ({ ...prev, splits: prev.splits.filter(s => s.id !== id) }))
   }
 
-  const removeSplitRow = (id) => {
-    setForm(prev => ({
-      ...prev,
-      splits: prev.splits.filter(s => s.id !== id),
-    }))
+  // ── Picker helpers ─────────────────────────────────────────────────────────
+
+  const isSubSelected = (catId, subId) =>
+    form.splits.some(s => s.categoryId === catId && s.subcategoryId === subId)
+
+  const isCatSelected = (catId) =>
+    form.splits.some(s => s.categoryId === catId && !s.subcategoryId)
+
+  // Amount to pre-fill when selecting a new item
+  const prefillAmount = () => {
+    const pre = Math.max(0, remaining)
+    return pre > 0 ? String(pre) : ''
   }
+
+  const toggleSubItem = (catId, subId) => {
+    if (errors.splits) setErrors(prev => ({ ...prev, splits: null }))
+    if (isSubSelected(catId, subId)) {
+      setForm(prev => ({
+        ...prev,
+        splits: prev.splits.filter(s => !(s.categoryId === catId && s.subcategoryId === subId)),
+      }))
+    } else {
+      setForm(prev => ({
+        ...prev,
+        splits: [...prev.splits, {
+          id: newSplitId(),
+          categoryId: catId,
+          subcategoryId: subId,
+          amount: prefillAmount(),
+        }],
+      }))
+    }
+  }
+
+  const toggleCatItem = (catId) => {
+    if (errors.splits) setErrors(prev => ({ ...prev, splits: null }))
+    if (isCatSelected(catId)) {
+      setForm(prev => ({
+        ...prev,
+        splits: prev.splits.filter(s => !(s.categoryId === catId && !s.subcategoryId)),
+      }))
+    } else {
+      setForm(prev => ({
+        ...prev,
+        splits: [...prev.splits, {
+          id: newSplitId(),
+          categoryId: catId,
+          subcategoryId: '',
+          amount: prefillAmount(),
+        }],
+      }))
+    }
+  }
+
+  // ── Budget remaining calculations ─────────────────────────────────────────
+
+  // Returns null if no budget is set (nothing to display)
+  const getSubRemainingDisplay = (subId) => {
+    const planned = getSubcategoryPlanned(currentMonthBudget, subId)
+    if (!planned) return null
+    const spent = getSubcategorySpent(baseTransactions, subId)
+    const formAssigned = form.splits
+      .filter(s => s.subcategoryId === subId)
+      .reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
+    return planned - spent - formAssigned
+  }
+
+  const getCatRemainingDisplay = (cat) => {
+    const planned = getCategoryEffectivePlanned(cat, currentMonthBudget)
+    if (!planned) return null
+    const spent = getCategorySpent(baseTransactions, cat.id)
+    const formAssigned = form.splits
+      .filter(s => s.categoryId === cat.id && !s.subcategoryId)
+      .reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
+    return planned - spent - formAssigned
+  }
+
+  const formatBudgetRemaining = (val) => {
+    if (val === null) return null
+    const abs = Math.abs(val).toFixed(2)
+    return val < 0 ? `-$${abs}` : `$${abs}`
+  }
+
+  // ── Validation ─────────────────────────────────────────────────────────────
 
   const validate = () => {
     const errs = {}
     const amt = parseFloat(form.amount)
     if (!form.amount || isNaN(amt) || amt <= 0) errs.amount = 'Enter a valid amount'
-    if (!form.date) errs.date = 'Date is required'
-    const missingCategory = form.splits.some(s => !s.categoryId)
-    if (missingCategory) errs.splits = 'Every row needs a category'
+    if (form.splits.length === 0) errs.splits = 'Select at least one budget item'
+    if (form.splits.some(s => !s.categoryId)) errs.splits = 'Every row needs a category'
     if (!errs.amount && Math.abs(remaining) >= 0.01) {
       errs.splits = remaining > 0
         ? `$${remaining.toFixed(2)} still unassigned`
@@ -163,7 +249,6 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
         notes: form.notes.trim() || null,
       }
     } else {
-      // Split format
       payload = {
         amount: totalAmt,
         date: form.date,
@@ -190,12 +275,111 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
 
   if (!isOpen) return null
 
+  // ── Render helpers ─────────────────────────────────────────────────────────
+
   const remainingColor =
     Math.abs(remaining) < 0.01
       ? 'text-emerald-600'
       : remaining < 0
       ? 'text-red-500'
       : 'text-amber-500'
+
+  // Only show categories matching the locked type (or all if none locked yet)
+  const visibleCategories = lockedType
+    ? categories.filter(c => c.type === lockedType)
+    : categories
+
+  const incomeVisible = visibleCategories.filter(c => c.type === 'income')
+  const expenseVisible = visibleCategories.filter(c => c.type === 'expense')
+
+  // Trigger button label
+  const selectedLabels = form.splits.map(s => {
+    const cat = categories.find(c => c.id === s.categoryId)
+    if (!cat) return null
+    const sub = cat.subcategories.find(sub => sub.id === s.subcategoryId)
+    return sub?.name ?? cat.name
+  }).filter(Boolean)
+
+  const triggerLabel = selectedLabels.length === 0
+    ? null
+    : selectedLabels.length <= 2
+    ? selectedLabels.join(', ')
+    : `${selectedLabels.length} items selected`
+
+  // Render one group of categories (income or expense)
+  const renderCategoryGroup = (cats) =>
+    cats.map(cat => (
+      <div key={cat.id}>
+        {cat.subcategories.length > 0 ? (
+          <>
+            {/* Non-selectable category header */}
+            <div className="px-3 pt-2.5 pb-1 text-[10px] font-bold tracking-widest uppercase text-indigo-500 select-none">
+              {cat.name}
+            </div>
+            {cat.subcategories.map(sub => {
+              const selected = isSubSelected(cat.id, sub.id)
+              const rem = getSubRemainingDisplay(sub.id)
+              const remStr = formatBudgetRemaining(rem)
+              return (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => toggleSubItem(cat.id, sub.id)}
+                  className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
+                    selected ? 'bg-indigo-50' : 'hover:bg-slate-50'
+                  }`}
+                >
+                  {/* Checkbox indicator */}
+                  <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+                    selected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 bg-white'
+                  }`}>
+                    {selected && <Check size={10} className="text-white" />}
+                  </span>
+                  <span className={`flex-1 text-left truncate ${selected ? 'text-indigo-700 font-medium' : 'text-slate-700'}`}>
+                    {sub.name}
+                  </span>
+                  {remStr !== null && (
+                    <span className={`text-xs tabular-nums flex-shrink-0 ${rem < 0 ? 'text-red-400' : 'text-slate-400'}`}>
+                      {remStr}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </>
+        ) : (
+          // Category with no subcategories — selectable directly
+          (() => {
+            const selected = isCatSelected(cat.id)
+            const rem = getCatRemainingDisplay(cat)
+            const remStr = formatBudgetRemaining(rem)
+            return (
+              <button
+                type="button"
+                onClick={() => toggleCatItem(cat.id)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
+                  selected ? 'bg-indigo-50' : 'hover:bg-slate-50'
+                }`}
+              >
+                <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+                  selected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 bg-white'
+                }`}>
+                  {selected && <Check size={10} className="text-white" />}
+                </span>
+                <span className={`flex-1 text-left truncate font-medium ${selected ? 'text-indigo-700' : 'text-slate-700'}`}>
+                  {cat.name}
+                </span>
+                {remStr !== null && (
+                  <span className={`text-xs tabular-nums flex-shrink-0 ${rem < 0 ? 'text-red-400' : 'text-slate-400'}`}>
+                    {remStr}
+                  </span>
+                )}
+              </button>
+            )
+          })()
+        )}
+      </div>
+    ))
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -229,12 +413,12 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm select-none">$</span>
                 <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   placeholder="0.00"
                   value={form.amount}
                   onChange={e => setField('amount', e.target.value)}
+                  onBlur={() => formatAmountOnBlur(form.amount, v => setField('amount', v))}
                   className={`w-full pl-7 pr-3 py-2 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 transition-colors ${
                     errors.amount
                       ? 'border-red-300 focus:border-red-400'
@@ -287,14 +471,14 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
             />
           </div>
 
-          {/* Split rows */}
+          {/* Budget item picker */}
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-medium text-slate-600">
-                Categories <span className="text-red-400">*</span>
+                Budget Item <span className="text-red-400">*</span>
               </label>
-              {/* Remaining counter — only shown when multiple rows or amount is set */}
-              {(form.splits.length > 1 || form.amount) && (
+              {/* Live remaining counter */}
+              {(form.splits.length > 0 || form.amount) && (
                 <span className={`text-xs font-medium ${remainingColor}`}>
                   {Math.abs(remaining) < 0.01
                     ? 'Fully assigned'
@@ -305,95 +489,108 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
               )}
             </div>
 
-            <div className="space-y-2">
-              {form.splits.map((split, idx) => {
-                const splitCat = categories.find(c => c.id === split.categoryId)
-                const splitSubs = splitCat?.subcategories ?? []
-                return (
-                  <div key={split.id} className="flex gap-2 items-start">
-                    {/* Category select */}
-                    <div className="flex-1 min-w-0">
-                      <select
-                        value={split.categoryId}
-                        onChange={e => setSplitField(split.id, 'categoryId', e.target.value)}
-                        className={`w-full px-3 py-2 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 bg-white transition-colors ${
-                          errors.splits && !split.categoryId
-                            ? 'border-red-300 focus:border-red-400'
-                            : 'border-slate-200 focus:border-indigo-400'
-                        }`}
-                      >
-                        <option value="">Category…</option>
-                        {incomeCategories.length > 0 && (
-                          <optgroup label="Income">
-                            {incomeCategories.map(c => (
-                              <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                          </optgroup>
-                        )}
-                        {expenseCategories.length > 0 && (
-                          <optgroup label="Expenses">
-                            {expenseCategories.map(c => (
-                              <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                          </optgroup>
-                        )}
-                      </select>
-
-                      {/* Subcategory — shown inline below category when available */}
-                      {splitSubs.length > 0 && (
-                        <select
-                          value={split.subcategoryId}
-                          onChange={e => setSplitField(split.id, 'subcategoryId', e.target.value)}
-                          className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white transition-colors mt-1.5"
-                        >
-                          <option value="">No subcategory</option>
-                          {splitSubs.map(s => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-
-                    {/* Split amount */}
-                    <div className="relative w-28 flex-shrink-0">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm select-none">$</span>
-                      <input
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={split.amount}
-                        onChange={e => setSplitField(split.id, 'amount', e.target.value)}
-                        className="w-full pl-7 pr-2 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-colors"
-                      />
-                    </div>
-
-                    {/* Remove row button */}
-                    <button
-                      type="button"
-                      onClick={() => removeSplitRow(split.id)}
-                      disabled={form.splits.length === 1}
-                      title="Remove"
-                      className="p-2 mt-0.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-
-            {errors.splits && <p className="text-xs text-red-500 mt-1.5">{errors.splits}</p>}
-
-            {/* Add another category */}
+            {/* Picker trigger button */}
             <button
               type="button"
-              onClick={addSplitRow}
-              className="mt-2 flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
+              onClick={() => setPickerOpen(v => !v)}
+              className={`w-full flex items-center justify-between px-3 py-2 text-sm border rounded-lg bg-white transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-200 ${
+                errors.splits && form.splits.length === 0
+                  ? 'border-red-300'
+                  : pickerOpen
+                  ? 'border-indigo-400 ring-2 ring-indigo-200'
+                  : 'border-slate-200 hover:border-slate-300'
+              }`}
             >
-              <Plus size={13} />
-              Add another category
+              <span className={`truncate ${triggerLabel ? 'text-slate-800' : 'text-slate-400'}`}>
+                {triggerLabel ?? 'Choose Budget Item(s)…'}
+              </span>
+              <ChevronDown
+                size={15}
+                className={`text-slate-400 flex-shrink-0 ml-2 transition-transform ${pickerOpen ? 'rotate-180' : ''}`}
+              />
             </button>
+
+            {/* Grouped picker panel — expands inline */}
+            {pickerOpen && (
+              <div className={`mt-1 border rounded-xl bg-white overflow-y-auto shadow-sm ${
+                errors.splits && form.splits.length === 0 ? 'border-red-200' : 'border-slate-200'
+              }`}
+                style={{ maxHeight: '224px' }}
+              >
+                {visibleCategories.length === 0 && (
+                  <p className="px-4 py-3 text-sm text-slate-400">No categories available.</p>
+                )}
+
+                {/* Show type section headers only when both types are visible */}
+                {!lockedType && incomeVisible.length > 0 && expenseVisible.length > 0 && (
+                  <>
+                    <div className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase text-slate-400 bg-slate-50 border-b border-slate-100 sticky top-0">
+                      Income
+                    </div>
+                    {renderCategoryGroup(incomeVisible)}
+                    <div className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase text-slate-400 bg-slate-50 border-t border-b border-slate-100 sticky top-0">
+                      Expenses
+                    </div>
+                    {renderCategoryGroup(expenseVisible)}
+                  </>
+                )}
+
+                {/* Single type visible (locked or only one type exists) */}
+                {(lockedType || incomeVisible.length === 0 || expenseVisible.length === 0) && (
+                  renderCategoryGroup(visibleCategories)
+                )}
+              </div>
+            )}
+
+            {/* Selected splits summary with amount inputs */}
+            {form.splits.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {form.splits.map(split => {
+                  const cat = categories.find(c => c.id === split.categoryId)
+                  const sub = cat?.subcategories.find(s => s.id === split.subcategoryId)
+                  const itemName = sub?.name ?? cat?.name ?? '—'
+                  const parentName = sub ? cat?.name : null
+
+                  return (
+                    <div key={split.id} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
+                      {/* Item label */}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-slate-800 truncate">{itemName}</div>
+                        {parentName && (
+                          <div className="text-xs text-slate-400 truncate">{parentName}</div>
+                        )}
+                      </div>
+
+                      {/* Amount input */}
+                      <div className="relative w-28 flex-shrink-0">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm select-none">$</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={split.amount}
+                          onChange={e => setSplitAmount(split.id, e.target.value)}
+                          onBlur={() => formatAmountOnBlur(split.amount, v => setSplitAmount(split.id, v))}
+                          className="w-full pl-7 pr-2 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-colors bg-white"
+                        />
+                      </div>
+
+                      {/* Remove button */}
+                      <button
+                        type="button"
+                        onClick={() => removeSplit(split.id)}
+                        title="Remove"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {errors.splits && <p className="text-xs text-red-500 mt-1.5">{errors.splits}</p>}
           </div>
 
           {/* Actions */}

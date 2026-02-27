@@ -46,7 +46,7 @@ function AmountInput({ value: planned, onUpdate, inputClass = '', displayClass =
 
   return (
     <button
-      onClick={() => { setEditing(true); setValue(planned > 0 ? String(planned) : '') }}
+      onClick={() => { setEditing(true); setValue(planned > 0 ? planned.toFixed(2) : '') }}
       className={`w-32 text-right text-sm px-2.5 py-1 rounded-lg hover:bg-slate-100 transition-colors ${displayClass}`}
     >
       {planned > 0
