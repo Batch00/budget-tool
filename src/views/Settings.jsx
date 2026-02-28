@@ -1,11 +1,11 @@
 import { useState, useRef } from 'react'
 import { Download, Upload, AlertTriangle } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { saveData } from '../utils/storage'
 
 export default function Settings() {
-  const { categories, transactions, budgets, currentMonth } = useApp()
+  const { categories, transactions, budgets, currentMonth, importAllData } = useApp()
   const [importState, setImportState] = useState(null) // null | { data, stats } | 'error'
+  const [importing, setImporting] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const fileInputRef = useRef(null)
 
@@ -58,13 +58,10 @@ export default function Settings() {
     e.target.value = ''
   }
 
-  function handleConfirmImport() {
-    const { data } = importState
-    saveData('categories', data.categories)
-    saveData('transactions', data.transactions)
-    saveData('budgets', data.budgets)
-    saveData('currentMonth', data.currentMonth)
-    window.location.reload()
+  async function handleConfirmImport() {
+    setImporting(true)
+    await importAllData(importState.data)
+    // importAllData calls window.location.reload() on completion
   }
 
   function handleCancelImport() {
@@ -152,9 +149,10 @@ export default function Settings() {
               <div className="flex gap-2 mt-3">
                 <button
                   onClick={handleConfirmImport}
-                  className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
+                  disabled={importing}
+                  className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                 >
-                  Confirm Import
+                  {importing ? 'Importing…' : 'Confirm Import'}
                 </button>
                 <button
                   onClick={handleCancelImport}

@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
+import { useApp } from './context/AppContext'
 import Layout from './components/layout/Layout'
 import Dashboard from './views/Dashboard'
 import Budget from './views/Budget'
@@ -9,14 +10,16 @@ import Categories from './views/Categories'
 import Settings from './views/Settings'
 import Auth from './views/Auth'
 
-export default function App() {
-  const { user, loading } = useAuth()
+function AppRoutes() {
+  const { loading } = useApp()
 
-  // Hold render until Supabase has restored the session from localStorage.
-  // This prevents a flash of the login page on every refresh.
-  if (loading) return null
-
-  if (!user) return <Auth />
+  // Show a blank screen while the initial Supabase fetch is in flight.
+  // This is typically <500ms; avoids flashing empty views on login/refresh.
+  if (loading) return (
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+      <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
 
   return (
     <Routes>
@@ -31,4 +34,16 @@ export default function App() {
       </Route>
     </Routes>
   )
+}
+
+export default function App() {
+  const { user, loading: authLoading } = useAuth()
+
+  // Hold render until Supabase has restored the session from localStorage.
+  // This prevents a flash of the login page on every refresh.
+  if (authLoading) return null
+
+  if (!user) return <Auth />
+
+  return <AppRoutes />
 }

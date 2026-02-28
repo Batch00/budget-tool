@@ -1,103 +1,496 @@
-import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
-import { loadData, saveData } from '../utils/storage'
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from './AuthContext'
 import { defaultCategories } from '../data/defaultCategories'
 import { getMonthKey } from '../utils/formatters'
+import { loadData, saveData } from '../utils/storage'
 
 const AppContext = createContext(null)
 
+// ── Data mappers ─────────────────────────────────────────────────────────────
+// Convert DB snake_case rows → app camelCase objects
+
+function dbToCategory(row, allSubRows) {
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    color: row.color,
+    subcategories: allSubRows
+      .filter(s => s.category_id === row.id)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map(s => ({ id: s.id, name: s.name })),
+  }
+}
+
+function dbToTransaction(row) {
+  const base = {
+    id: row.id,
+    date: row.date,
+    amount: parseFloat(row.amount),
+    type: row.type,
+    merchant: row.merchant ?? '',
+    notes: row.notes ?? '',
+  }
+  if (row.is_split) {
+    return {
+      ...base,
+      categoryId: null,
+      subcategoryId: null,
+      splits: (row.transaction_splits ?? []).map(s => ({
+        categoryId: s.category_id,
+        subcategoryId: s.subcategory_id ?? null,
+        amount: parseFloat(s.amount),
+      })),
+    }
+  }
+  return {
+    ...base,
+    categoryId: row.category_id,
+    subcategoryId: row.subcategory_id ?? null,
+  }
+}
+
+// Build the full multi-month budgets map from all budget_plan rows
+function dbToBudgets(planRows) {
+  const budgets = {}
+  for (const row of planRows) {
+    if (!budgets[row.month_key]) {
+      budgets[row.month_key] = { planned: {}, subcategoryPlanned: {} }
+    }
+    if (row.category_id) {
+      budgets[row.month_key].planned[row.category_id] = parseFloat(row.planned_amount)
+    } else {
+      budgets[row.month_key].subcategoryPlanned[row.subcategory_id] = parseFloat(row.planned_amount)
+    }
+  }
+  return budgets
+}
+
+// ── Provider ──────────────────────────────────────────────────────────────────
+
 export function AppProvider({ children }) {
+  const { user } = useAuth()
+
+  // currentMonth is UI state only — persisted in localStorage, not Supabase
   const [currentMonth, setCurrentMonthState] = useState(
     () => loadData('currentMonth', getMonthKey())
   )
-  const [categories, setCategories] = useState(
-    () => loadData('categories', defaultCategories)
-  )
-  const [transactions, setTransactions] = useState(
-    () => loadData('transactions', [])
-  )
-  const [budgets, setBudgets] = useState(
-    () => loadData('budgets', {})
-  )
+  const [categories, setCategories] = useState([])
+  const [transactions, setTransactions] = useState([])
+  const [budgets, setBudgets] = useState({})
+  const [loading, setLoading] = useState(true)
 
-  useEffect(() => saveData('currentMonth', currentMonth), [currentMonth])
-  useEffect(() => saveData('categories', categories), [categories])
-  useEffect(() => saveData('transactions', transactions), [transactions])
-  useEffect(() => saveData('budgets', budgets), [budgets])
+  // Ref so updateTransaction can always read latest transactions without a stale closure
+  const transactionsRef = useRef(transactions)
+  useEffect(() => { transactionsRef.current = transactions }, [transactions])
+
+  // ── Initial load ────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!user) {
+      // Logged out — clear all data
+      setCategories([])
+      setTransactions([])
+      setBudgets({})
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+
+    async function seedDefaults() {
+      // IMPORTANT: do NOT pass `id` here. defaultCategories uses plain string IDs
+      // like 'income' and 'housing' which are not valid UUIDs. The DB schema uses
+      // `id uuid PRIMARY KEY`, so inserting those strings would fail with:
+      //   "invalid input syntax for type uuid: "income""
+      // Let Postgres generate UUIDs and map them back by name.
+      const catInserts = defaultCategories.map((c, i) => ({
+        user_id: user.id,
+        name: c.name,
+        type: c.type,
+        color: c.color ?? '#6366f1',
+        sort_order: i,
+      }))
+      const { data: insertedCats, error: catErr } = await supabase
+        .from('categories').insert(catInserts).select()
+      if (catErr) {
+        console.error('seedDefaults — categories insert failed:', catErr)
+        return []
+      }
+
+      // Map original string key → DB-generated UUID so subcategory rows can
+      // reference the correct parent.
+      const catIdMap = {}
+      defaultCategories.forEach(c => {
+        const dbRow = insertedCats.find(row => row.name === c.name)
+        if (dbRow) catIdMap[c.id] = dbRow.id
+      })
+
+      const subInserts = defaultCategories.flatMap(c =>
+        (c.subcategories ?? []).map((s, si) => ({
+          // No `id` — let the DB generate a UUID
+          category_id: catIdMap[c.id],   // DB UUID, not the old string key
+          user_id: user.id,
+          name: s.name,
+          sort_order: si,
+        }))
+      )
+      let insertedSubs = []
+      if (subInserts.length > 0) {
+        const { data, error: subErr } = await supabase
+          .from('subcategories').insert(subInserts).select()
+        if (subErr) console.error('seedDefaults — subcategories insert failed:', subErr)
+        else insertedSubs = data ?? []
+      }
+      return (insertedCats ?? []).map(row => dbToCategory(row, insertedSubs))
+    }
+
+    async function loadAll() {
+      // Fetch all user data in parallel — no month scoping needed; Analytics needs all months
+      const [
+        { data: catRows,  error: catErr  },
+        { data: subRows,  error: subErr  },
+        { data: txRows,   error: txErr   },
+        { data: planRows, error: planErr },
+      ] = await Promise.all([
+        supabase.from('categories')     .select('*')                    .eq('user_id', user.id).order('sort_order'),
+        supabase.from('subcategories')  .select('*')                    .eq('user_id', user.id).order('sort_order'),
+        supabase.from('transactions')   .select('*, transaction_splits(*)').eq('user_id', user.id).order('date', { ascending: false }),
+        supabase.from('budget_plans')   .select('*')                    .eq('user_id', user.id),
+      ])
+
+      if (catErr || subErr || txErr || planErr) {
+        // RLS "permission denied" shows up here as an error (not empty data).
+        // Empty data with no error = RLS silently filtering — check Supabase policies.
+        console.error('loadAll — query errors:', { catErr, subErr, txErr, planErr })
+        setLoading(false)
+        return
+      }
+      console.debug('loadAll — row counts:', {
+        categories: catRows.length,
+        subcategories: subRows.length,
+        transactions: txRows.length,
+        budgetPlans: planRows.length,
+      })
+
+      const cats = catRows.length === 0
+        ? await seedDefaults()
+        : catRows.map(row => dbToCategory(row, subRows ?? []))
+
+      setCategories(cats)
+      setTransactions((txRows ?? []).map(dbToTransaction))
+      setBudgets(dbToBudgets(planRows ?? []))
+      setLoading(false)
+    }
+
+    loadAll()
+  }, [user?.id]) // re-run on login / logout
+
+  // ── setCurrentMonth ─────────────────────────────────────────────────────────
 
   const setCurrentMonth = useCallback((monthKey) => {
     setCurrentMonthState(monthKey)
+    saveData('currentMonth', monthKey)
   }, [])
 
-  // ── Transactions ──────────────────────────────────────────────────────────
+  // ── Transactions ─────────────────────────────────────────────────────────────
 
-  const addTransaction = useCallback((transaction) => {
-    const newTransaction = { ...transaction, id: crypto.randomUUID() }
-    setTransactions(prev => [...prev, newTransaction])
+  const addTransaction = useCallback(async (transaction) => {
+    const isSplit = transaction.categoryId === null && Array.isArray(transaction.splits)
+
+    const { data: txRow, error: txErr } = await supabase
+      .from('transactions')
+      .insert({
+        user_id: user.id,
+        date: transaction.date,
+        amount: transaction.amount,
+        type: transaction.type,
+        merchant: transaction.merchant || null,
+        notes: transaction.notes || null,
+        is_split: isSplit,
+        category_id: isSplit ? null : transaction.categoryId,
+        subcategory_id: isSplit ? null : (transaction.subcategoryId || null),
+      })
+      .select()
+      .single()
+
+    if (txErr) { console.error('Failed to add transaction:', txErr); return null }
+
+    let splitRows = []
+    if (isSplit && transaction.splits.length > 0) {
+      const { data: inserted, error: splitErr } = await supabase
+        .from('transaction_splits')
+        .insert(transaction.splits.map(s => ({
+          transaction_id: txRow.id,
+          category_id: s.categoryId,
+          subcategory_id: s.subcategoryId || null,
+          amount: s.amount,
+        })))
+        .select()
+      if (splitErr) console.error('Failed to add splits:', splitErr)
+      splitRows = inserted ?? []
+    }
+
+    const newTransaction = dbToTransaction({ ...txRow, transaction_splits: splitRows })
+    setTransactions(prev => [newTransaction, ...prev])
     return newTransaction
-  }, [])
+  }, [user])
 
-  const updateTransaction = useCallback((id, updates) => {
-    setTransactions(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
-  }, [])
+  const updateTransaction = useCallback(async (id, updates) => {
+    // Use ref so we always read the latest transactions without stale closure
+    const existing = transactionsRef.current.find(t => t.id === id)
+    if (!existing) return
 
-  const deleteTransaction = useCallback((id) => {
+    const isSplit = updates.categoryId === null && Array.isArray(updates.splits)
+
+    const { error: txErr } = await supabase
+      .from('transactions')
+      .update({
+        date: updates.date,
+        amount: updates.amount,
+        type: updates.type,
+        merchant: updates.merchant || null,
+        notes: updates.notes || null,
+        is_split: isSplit,
+        category_id: isSplit ? null : updates.categoryId,
+        subcategory_id: isSplit ? null : (updates.subcategoryId || null),
+      })
+      .eq('id', id)
+
+    if (txErr) { console.error('Failed to update transaction:', txErr); return }
+
+    // Replace splits whenever the transaction was or is now a split
+    if (existing.splits || isSplit) {
+      await supabase.from('transaction_splits').delete().eq('transaction_id', id)
+    }
+
+    let newSplitRows = []
+    if (isSplit && updates.splits.length > 0) {
+      const { data: inserted, error: splitErr } = await supabase
+        .from('transaction_splits')
+        .insert(updates.splits.map(s => ({
+          transaction_id: id,
+          category_id: s.categoryId,
+          subcategory_id: s.subcategoryId || null,
+          amount: s.amount,
+        })))
+        .select()
+      if (splitErr) console.error('Failed to update splits:', splitErr)
+      newSplitRows = inserted ?? []
+    }
+
+    const updatedTransaction = dbToTransaction({
+      id,
+      user_id: user.id,
+      date: updates.date,
+      amount: updates.amount,
+      type: updates.type,
+      merchant: updates.merchant || null,
+      notes: updates.notes || null,
+      is_split: isSplit,
+      category_id: isSplit ? null : updates.categoryId,
+      subcategory_id: isSplit ? null : (updates.subcategoryId || null),
+      transaction_splits: newSplitRows,
+    })
+
+    setTransactions(prev => prev.map(t => t.id === id ? updatedTransaction : t))
+  }, [user])
+
+  const deleteTransaction = useCallback(async (id) => {
+    // transaction_splits cascade-delete from the DB schema
+    const { error } = await supabase.from('transactions').delete().eq('id', id)
+    if (error) { console.error('Failed to delete transaction:', error); return }
     setTransactions(prev => prev.filter(t => t.id !== id))
-  }, [])
+  }, [user])
 
-  // ── Budgets ───────────────────────────────────────────────────────────────
+  // ── Budgets ───────────────────────────────────────────────────────────────────
+  // Budget writes use an optimistic update so typing into budget fields feels instant.
+  // We use DELETE + INSERT instead of upsert to avoid issues with partial unique indexes.
 
-  const setBudgetAmount = useCallback((monthKey, categoryId, amount) => {
+  const setBudgetAmount = useCallback(async (monthKey, categoryId, amount) => {
+    // Optimistic update
     setBudgets(prev => ({
       ...prev,
       [monthKey]: {
-        planned: {
-          ...(prev[monthKey]?.planned ?? {}),
-          [categoryId]: amount,
-        },
+        planned: { ...(prev[monthKey]?.planned ?? {}), [categoryId]: amount },
+        subcategoryPlanned: prev[monthKey]?.subcategoryPlanned ?? {},
       },
     }))
-  }, [])
 
-  const getMonthBudget = useCallback((monthKey) => {
-    return budgets[monthKey] ?? { planned: {} }
-  }, [budgets])
+    await supabase.from('budget_plans').delete()
+      .eq('user_id', user.id).eq('month_key', monthKey).eq('category_id', categoryId)
 
-  // Delete all planned amounts for a month (returns it to uninitialized state)
-  const resetMonthBudget = useCallback((monthKey) => {
-    setBudgets(prev => {
-      const next = { ...prev }
-      delete next[monthKey]
-      return next
+    const { error } = await supabase.from('budget_plans').insert({
+      user_id: user.id,
+      month_key: monthKey,
+      category_id: categoryId,
+      subcategory_id: null,
+      planned_amount: amount,
     })
-  }, [])
+    if (error) console.error('Failed to set budget amount:', error)
+  }, [user])
 
-  // Set planned amount for a single subcategory
-  const setSubcategoryBudgetAmount = useCallback((monthKey, subcategoryId, amount) => {
+  const setSubcategoryBudgetAmount = useCallback(async (monthKey, subcategoryId, amount) => {
+    // Optimistic update
     setBudgets(prev => ({
       ...prev,
       [monthKey]: {
         planned: prev[monthKey]?.planned ?? {},
-        subcategoryPlanned: {
-          ...(prev[monthKey]?.subcategoryPlanned ?? {}),
-          [subcategoryId]: amount,
-        },
+        subcategoryPlanned: { ...(prev[monthKey]?.subcategoryPlanned ?? {}), [subcategoryId]: amount },
       },
     }))
-  }, [])
 
-  // Copy all planned amounts (category + subcategory) from one month into another
-  const copyBudget = useCallback((fromKey, toKey) => {
+    await supabase.from('budget_plans').delete()
+      .eq('user_id', user.id).eq('month_key', monthKey).eq('subcategory_id', subcategoryId)
+
+    const { error } = await supabase.from('budget_plans').insert({
+      user_id: user.id,
+      month_key: monthKey,
+      category_id: null,
+      subcategory_id: subcategoryId,
+      planned_amount: amount,
+    })
+    if (error) console.error('Failed to set subcategory budget amount:', error)
+  }, [user])
+
+  const getMonthBudget = useCallback((monthKey) => {
+    return budgets[monthKey] ?? { planned: {}, subcategoryPlanned: {} }
+  }, [budgets])
+
+  const resetMonthBudget = useCallback(async (monthKey) => {
+    const { error } = await supabase.from('budget_plans').delete()
+      .eq('user_id', user.id).eq('month_key', monthKey)
+    if (error) { console.error('Failed to reset month budget:', error); return }
+    setBudgets(prev => { const next = { ...prev }; delete next[monthKey]; return next })
+  }, [user])
+
+  const copyBudget = useCallback(async (fromKey, toKey) => {
+    const source = budgets[fromKey]
+    if (!source) return
+
+    // Build the flat rows to copy
+    const inserts = [
+      ...Object.entries(source.planned ?? {}).map(([catId, amt]) => ({
+        user_id: user.id, month_key: toKey, category_id: catId, subcategory_id: null, planned_amount: amt,
+      })),
+      ...Object.entries(source.subcategoryPlanned ?? {}).map(([subId, amt]) => ({
+        user_id: user.id, month_key: toKey, category_id: null, subcategory_id: subId, planned_amount: amt,
+      })),
+    ]
+
+    // Delete target month's existing plans then insert copies
+    await supabase.from('budget_plans').delete().eq('user_id', user.id).eq('month_key', toKey)
+
+    if (inserts.length > 0) {
+      const { error } = await supabase.from('budget_plans').insert(inserts)
+      if (error) { console.error('Failed to copy budget plans:', error); return }
+    }
+
     setBudgets(prev => ({
       ...prev,
       [toKey]: {
-        planned: { ...(prev[fromKey]?.planned ?? {}) },
-        subcategoryPlanned: { ...(prev[fromKey]?.subcategoryPlanned ?? {}) },
+        planned: { ...source.planned },
+        subcategoryPlanned: { ...source.subcategoryPlanned },
       },
     }))
-  }, [])
+  }, [user, budgets])
 
-  // Reorder a subcategory within its parent category
-  const moveSubcategory = useCallback((categoryId, fromSubId, toSubId) => {
+  // ── Categories ────────────────────────────────────────────────────────────────
+
+  const addCategory = useCallback(async (category) => {
+    const sortOrder = categories.filter(c => c.type === category.type).length
+
+    const { data: row, error } = await supabase
+      .from('categories')
+      .insert({
+        user_id: user.id,
+        name: category.name,
+        type: category.type,
+        color: category.color ?? '#6366f1',
+        sort_order: sortOrder,
+      })
+      .select().single()
+
+    if (error) { console.error('Failed to add category:', error); return }
+    setCategories(prev => [...prev, { ...row, subcategories: [] }])
+  }, [user, categories])
+
+  const updateCategory = useCallback(async (id, updates) => {
+    const { error } = await supabase
+      .from('categories').update({ name: updates.name, color: updates.color }).eq('id', id)
+    if (error) { console.error('Failed to update category:', error); return }
+    setCategories(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c))
+  }, [user])
+
+  const deleteCategory = useCallback(async (id) => {
+    // Subcategories and budget_plans cascade-delete from the DB schema
+    const { error } = await supabase.from('categories').delete().eq('id', id)
+    if (error) { console.error('Failed to delete category:', error); return }
+    setCategories(prev => prev.filter(c => c.id !== id))
+  }, [user])
+
+  const addSubcategory = useCallback(async (categoryId, name) => {
+    const category = categories.find(c => c.id === categoryId)
+    const sortOrder = category?.subcategories.length ?? 0
+
+    const { data: row, error } = await supabase
+      .from('subcategories')
+      .insert({ category_id: categoryId, user_id: user.id, name, sort_order: sortOrder })
+      .select().single()
+
+    if (error) { console.error('Failed to add subcategory:', error); return }
+    setCategories(prev => prev.map(c =>
+      c.id === categoryId
+        ? { ...c, subcategories: [...c.subcategories, { id: row.id, name: row.name }] }
+        : c
+    ))
+  }, [user, categories])
+
+  const updateSubcategory = useCallback(async (categoryId, subId, name) => {
+    const { error } = await supabase.from('subcategories').update({ name }).eq('id', subId)
+    if (error) { console.error('Failed to update subcategory:', error); return }
+    setCategories(prev => prev.map(c =>
+      c.id === categoryId
+        ? { ...c, subcategories: c.subcategories.map(s => s.id === subId ? { ...s, name } : s) }
+        : c
+    ))
+  }, [user])
+
+  const deleteSubcategory = useCallback(async (categoryId, subId) => {
+    // budget_plans rows referencing this subcategory cascade-delete
+    const { error } = await supabase.from('subcategories').delete().eq('id', subId)
+    if (error) { console.error('Failed to delete subcategory:', error); return }
+    setCategories(prev => prev.map(c =>
+      c.id === categoryId
+        ? { ...c, subcategories: c.subcategories.filter(s => s.id !== subId) }
+        : c
+    ))
+  }, [user])
+
+  const moveCategory = useCallback(async (id, direction) => {
+    const idx = categories.findIndex(c => c.id === id)
+    if (idx === -1) return
+    const type = categories[idx].type
+    const sameTypeIndices = categories.map((c, i) => i).filter(i => categories[i].type === type)
+    const posInGroup = sameTypeIndices.indexOf(idx)
+    const targetPos = direction === 'up' ? posInGroup - 1 : posInGroup + 1
+    if (targetPos < 0 || targetPos >= sameTypeIndices.length) return
+    const targetIdx = sameTypeIndices[targetPos]
+
+    const next = [...categories]
+    ;[next[idx], next[targetIdx]] = [next[targetIdx], next[idx]]
+    setCategories(next) // optimistic
+
+    // Persist all sort_orders for this type group to keep them consistent
+    await Promise.all(
+      next
+        .filter(c => c.type === type)
+        .map((c, i) => supabase.from('categories').update({ sort_order: i }).eq('id', c.id))
+    )
+  }, [user, categories])
+
+  const moveSubcategory = useCallback(async (categoryId, fromSubId, toSubId) => {
     setCategories(prev => prev.map(c => {
       if (c.id !== categoryId) return c
       const subs = [...c.subcategories]
@@ -106,70 +499,99 @@ export function AppProvider({ children }) {
       if (fromIdx === -1 || toIdx === -1) return c
       const [item] = subs.splice(fromIdx, 1)
       subs.splice(toIdx, 0, item)
+      // Fire-and-forget sort_order updates for all subs in the new order
+      subs.forEach((s, i) =>
+        supabase.from('subcategories').update({ sort_order: i }).eq('id', s.id)
+      )
       return { ...c, subcategories: subs }
     }))
-  }, [])
+  }, [user])
 
-  // ── Categories ────────────────────────────────────────────────────────────
+  // ── Import all data (for Settings restore) ────────────────────────────────────
 
-  const addCategory = useCallback((category) => {
-    setCategories(prev => [
-      ...prev,
-      { ...category, id: crypto.randomUUID(), subcategories: category.subcategories ?? [] },
+  const importAllData = useCallback(async (backup) => {
+    // Delete everything for this user; subcategories + budget_plans cascade from categories
+    await Promise.all([
+      supabase.from('transactions').delete().eq('user_id', user.id),
+      supabase.from('categories').delete().eq('user_id', user.id),
     ])
-  }, [])
 
-  const updateCategory = useCallback((id, updates) => {
-    setCategories(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c))
-  }, [])
+    // Insert categories
+    const catInserts = (backup.categories ?? []).map((c, i) => ({
+      id: c.id, user_id: user.id, name: c.name, type: c.type,
+      color: c.color ?? '#6366f1', sort_order: i,
+    }))
+    if (catInserts.length > 0) {
+      await supabase.from('categories').insert(catInserts)
+    }
 
-  const deleteCategory = useCallback((id) => {
-    setCategories(prev => prev.filter(c => c.id !== id))
-  }, [])
+    // Insert subcategories
+    const subInserts = (backup.categories ?? []).flatMap((c, _ci) =>
+      (c.subcategories ?? []).map((s, si) => ({
+        id: s.id, category_id: c.id, user_id: user.id, name: s.name, sort_order: si,
+      }))
+    )
+    if (subInserts.length > 0) {
+      await supabase.from('subcategories').insert(subInserts)
+    }
 
-  const addSubcategory = useCallback((categoryId, name) => {
-    setCategories(prev => prev.map(c =>
-      c.id === categoryId
-        ? { ...c, subcategories: [...c.subcategories, { id: crypto.randomUUID(), name }] }
-        : c
-    ))
-  }, [])
+    // Insert flat (non-split) transactions
+    const flatTxns = (backup.transactions ?? []).filter(t => !t.splits)
+    if (flatTxns.length > 0) {
+      await supabase.from('transactions').insert(flatTxns.map(t => ({
+        id: t.id, user_id: user.id, date: t.date, amount: t.amount, type: t.type,
+        merchant: t.merchant || null, notes: t.notes || null,
+        is_split: false, category_id: t.categoryId, subcategory_id: t.subcategoryId || null,
+      })))
+    }
 
-  const updateSubcategory = useCallback((categoryId, subId, name) => {
-    setCategories(prev => prev.map(c =>
-      c.id === categoryId
-        ? { ...c, subcategories: c.subcategories.map(s => s.id === subId ? { ...s, name } : s) }
-        : c
-    ))
-  }, [])
+    // Insert split transactions sequentially (each needs its splits row after)
+    for (const t of (backup.transactions ?? []).filter(t => t.splits)) {
+      const { data: txRow } = await supabase
+        .from('transactions')
+        .insert({
+          id: t.id, user_id: user.id, date: t.date, amount: t.amount, type: t.type,
+          merchant: t.merchant || null, notes: t.notes || null,
+          is_split: true, category_id: null, subcategory_id: null,
+        })
+        .select().single()
 
-  const deleteSubcategory = useCallback((categoryId, subId) => {
-    setCategories(prev => prev.map(c =>
-      c.id === categoryId
-        ? { ...c, subcategories: c.subcategories.filter(s => s.id !== subId) }
-        : c
-    ))
-  }, [])
+      if (txRow && t.splits?.length > 0) {
+        await supabase.from('transaction_splits').insert(
+          t.splits.map(s => ({
+            transaction_id: txRow.id,
+            category_id: s.categoryId,
+            subcategory_id: s.subcategoryId || null,
+            amount: s.amount,
+          }))
+        )
+      }
+    }
 
-  // Move a category up or down within its type group (income or expense)
-  const moveCategory = useCallback((id, direction) => {
-    setCategories(prev => {
-      const idx = prev.findIndex(c => c.id === id)
-      if (idx === -1) return prev
-      const type = prev[idx].type
-      // Indices of same-type categories in their original array positions
-      const sameTypeIndices = prev.map((c, i) => i).filter(i => prev[i].type === type)
-      const posInGroup = sameTypeIndices.indexOf(idx)
-      const targetPos = direction === 'up' ? posInGroup - 1 : posInGroup + 1
-      if (targetPos < 0 || targetPos >= sameTypeIndices.length) return prev
-      const targetIdx = sameTypeIndices[targetPos]
-      const next = [...prev]
-      ;[next[idx], next[targetIdx]] = [next[targetIdx], next[idx]]
-      return next
-    })
-  }, [])
+    // Insert budget plans
+    const planInserts = []
+    for (const [monthKey, monthData] of Object.entries(backup.budgets ?? {})) {
+      for (const [catId, amt] of Object.entries(monthData.planned ?? {})) {
+        planInserts.push({
+          user_id: user.id, month_key: monthKey,
+          category_id: catId, subcategory_id: null, planned_amount: amt,
+        })
+      }
+      for (const [subId, amt] of Object.entries(monthData.subcategoryPlanned ?? {})) {
+        planInserts.push({
+          user_id: user.id, month_key: monthKey,
+          category_id: null, subcategory_id: subId, planned_amount: amt,
+        })
+      }
+    }
+    if (planInserts.length > 0) {
+      await supabase.from('budget_plans').insert(planInserts)
+    }
 
-  // ── Derived ───────────────────────────────────────────────────────────────
+    window.location.reload()
+  }, [user])
+
+  // ── Derived ───────────────────────────────────────────────────────────────────
 
   const currentMonthTransactions = useMemo(
     () => transactions.filter(t => t.date?.startsWith(currentMonth)),
@@ -177,7 +599,7 @@ export function AppProvider({ children }) {
   )
 
   const currentMonthBudget = useMemo(
-    () => budgets[currentMonth] ?? { planned: {} },
+    () => budgets[currentMonth] ?? { planned: {}, subcategoryPlanned: {} },
     [budgets, currentMonth]
   )
 
@@ -189,6 +611,7 @@ export function AppProvider({ children }) {
     currentMonthTransactions,
     budgets,
     currentMonthBudget,
+    loading,
     addTransaction,
     updateTransaction,
     deleteTransaction,
@@ -205,16 +628,17 @@ export function AppProvider({ children }) {
     setSubcategoryBudgetAmount,
     copyBudget,
     moveSubcategory,
+    importAllData,
   }), [
     currentMonth, setCurrentMonth,
     categories, transactions, currentMonthTransactions,
-    budgets, currentMonthBudget,
+    budgets, currentMonthBudget, loading,
     addTransaction, updateTransaction, deleteTransaction,
     setBudgetAmount, getMonthBudget,
     resetMonthBudget, setSubcategoryBudgetAmount, copyBudget, moveSubcategory,
     addCategory, updateCategory, deleteCategory,
     addSubcategory, updateSubcategory, deleteSubcategory,
-    moveCategory,
+    moveCategory, importAllData,
   ])
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
