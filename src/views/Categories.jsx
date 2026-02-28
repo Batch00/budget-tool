@@ -96,7 +96,11 @@ function SortableSubcategoryRow({ categoryId, sub, transactionCount }) {
         </>
       ) : (
         <>
-          <span className="flex-1 text-sm text-slate-700">{sub.name}</span>
+          <span
+            className="flex-1 text-sm text-slate-700 cursor-default select-none"
+            onDoubleClick={startEdit}
+            title="Double-click to rename"
+          >{sub.name}</span>
           {transactionCount > 0 && (
             <span className="text-xs text-slate-400">{transactionCount}</span>
           )}
@@ -158,9 +162,28 @@ function AddSubcategoryInput({ onAdd, onCancel }) {
 // ── CategoryCard ───────────────────────────────────────────────────────────────
 
 function CategoryCard({ category, isFirst, isLast, transactions, onEdit, onDelete, onMove }) {
-  const { addSubcategory, moveSubcategory } = useApp()
+  const { addSubcategory, moveSubcategory, updateCategory } = useApp()
   const [expanded, setExpanded] = useState(false)
   const [addingSubcat, setAddingSubcat] = useState(false)
+  const [nameEditing, setNameEditing] = useState(false)
+  const [nameValue, setNameValue] = useState(category.name)
+
+  const startNameEdit = () => { setNameValue(category.name); setNameEditing(true) }
+
+  const commitName = () => {
+    const trimmed = nameValue.trim()
+    if (trimmed && trimmed !== category.name) {
+      updateCategory(category.id, { name: trimmed, color: category.color })
+    } else {
+      setNameValue(category.name)
+    }
+    setNameEditing(false)
+  }
+
+  const handleNameKeyDown = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commitName() }
+    if (e.key === 'Escape') { setNameValue(category.name); setNameEditing(false) }
+  }
 
   const catTransactionCount = transactions.filter(t => t.categoryId === category.id).length
   const isIncome = category.type === 'income'
@@ -188,31 +211,70 @@ function CategoryCard({ category, isFirst, isLast, transactions, onEdit, onDelet
           style={{ backgroundColor: category.color }}
         />
 
-        <button
-          onClick={() => setExpanded(e => !e)}
-          className="flex-1 flex items-center gap-2 text-left min-w-0"
-        >
-          <span className="text-sm font-semibold text-slate-800 truncate">{category.name}</span>
-          <span className={`text-xs px-1.5 py-0.5 rounded-md font-medium flex-shrink-0 ${
-            isIncome ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
-          }`}>
-            {category.type}
-          </span>
-          <span className="text-xs text-slate-400 flex-shrink-0">
-            {category.subcategories.length} sub{category.subcategories.length !== 1 ? 's' : ''}
-          </span>
-          {catTransactionCount > 0 && (
-            <span className="text-xs text-slate-400 flex-shrink-0">
-              · {catTransactionCount} txn{catTransactionCount !== 1 ? 's' : ''}
+        {nameEditing ? (
+          // Inline name edit — replaces the expand button while active
+          <>
+            <input
+              type="text"
+              value={nameValue}
+              onChange={e => setNameValue(e.target.value)}
+              onBlur={commitName}
+              onKeyDown={handleNameKeyDown}
+              autoFocus
+              className="flex-1 text-sm font-semibold border border-indigo-300 rounded-md px-2 py-0.5 outline-none focus:ring-2 focus:ring-indigo-200 min-w-0"
+            />
+            <button
+              type="button"
+              onMouseDown={e => e.preventDefault()} // keep focus on input
+              onClick={commitName}
+              className="p-1 rounded text-indigo-600 hover:bg-indigo-50 flex-shrink-0 transition-colors"
+              title="Save"
+            >
+              <Check size={13} />
+            </button>
+            <button
+              type="button"
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => { setNameValue(category.name); setNameEditing(false) }}
+              className="p-1 rounded text-slate-400 hover:bg-slate-100 flex-shrink-0 transition-colors"
+              title="Cancel"
+            >
+              <X size={13} />
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={() => setExpanded(e => !e)}
+            className="flex-1 flex items-center gap-2 text-left min-w-0"
+          >
+            <span
+              className="text-sm font-semibold text-slate-800 truncate cursor-default select-none"
+              onDoubleClick={e => { e.stopPropagation(); startNameEdit() }}
+              title="Double-click to rename"
+            >
+              {category.name}
             </span>
-          )}
-          <span className="ml-auto flex-shrink-0">
-            {expanded
-              ? <ChevronDown size={14} className="text-slate-400" />
-              : <ChevronRight size={14} className="text-slate-400" />
-            }
-          </span>
-        </button>
+            <span className={`text-xs px-1.5 py-0.5 rounded-md font-medium flex-shrink-0 ${
+              isIncome ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+            }`}>
+              {category.type}
+            </span>
+            <span className="text-xs text-slate-400 flex-shrink-0">
+              {category.subcategories.length} sub{category.subcategories.length !== 1 ? 's' : ''}
+            </span>
+            {catTransactionCount > 0 && (
+              <span className="text-xs text-slate-400 flex-shrink-0">
+                · {catTransactionCount} txn{catTransactionCount !== 1 ? 's' : ''}
+              </span>
+            )}
+            <span className="ml-auto flex-shrink-0">
+              {expanded
+                ? <ChevronDown size={14} className="text-slate-400" />
+                : <ChevronRight size={14} className="text-slate-400" />
+              }
+            </span>
+          </button>
+        )}
 
         <div className="flex items-center gap-0.5 flex-shrink-0">
           <button

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, ChevronDown, Check } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { getTodayString } from '../../utils/formatters'
@@ -33,6 +33,19 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
   const [form, setForm] = useState(emptyForm)
   const [errors, setErrors] = useState({})
   const [pickerOpen, setPickerOpen] = useState(false)
+
+  // Ref for the scrollable picker panel — used to preserve scroll position
+  // when selections are toggled, because React re-renders can reset scroll.
+  const pickerScrollRef = useRef(null)
+
+  // Run `fn` then restore the picker's scroll position after React commits the update.
+  const withScrollPreserved = (fn) => {
+    const scrollTop = pickerScrollRef.current?.scrollTop ?? 0
+    fn()
+    requestAnimationFrame(() => {
+      if (pickerScrollRef.current) pickerScrollRef.current.scrollTop = scrollTop
+    })
+  }
 
   // Populate form when modal opens
   useEffect(() => {
@@ -142,43 +155,47 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
   }
 
   const toggleSubItem = (catId, subId) => {
-    if (errors.splits) setErrors(prev => ({ ...prev, splits: null }))
-    if (isSubSelected(catId, subId)) {
-      setForm(prev => ({
-        ...prev,
-        splits: prev.splits.filter(s => !(s.categoryId === catId && s.subcategoryId === subId)),
-      }))
-    } else {
-      setForm(prev => ({
-        ...prev,
-        splits: [...prev.splits, {
-          id: newSplitId(),
-          categoryId: catId,
-          subcategoryId: subId,
-          amount: prefillAmount(),
-        }],
-      }))
-    }
+    withScrollPreserved(() => {
+      if (errors.splits) setErrors(prev => ({ ...prev, splits: null }))
+      if (isSubSelected(catId, subId)) {
+        setForm(prev => ({
+          ...prev,
+          splits: prev.splits.filter(s => !(s.categoryId === catId && s.subcategoryId === subId)),
+        }))
+      } else {
+        setForm(prev => ({
+          ...prev,
+          splits: [...prev.splits, {
+            id: newSplitId(),
+            categoryId: catId,
+            subcategoryId: subId,
+            amount: prefillAmount(),
+          }],
+        }))
+      }
+    })
   }
 
   const toggleCatItem = (catId) => {
-    if (errors.splits) setErrors(prev => ({ ...prev, splits: null }))
-    if (isCatSelected(catId)) {
-      setForm(prev => ({
-        ...prev,
-        splits: prev.splits.filter(s => !(s.categoryId === catId && !s.subcategoryId)),
-      }))
-    } else {
-      setForm(prev => ({
-        ...prev,
-        splits: [...prev.splits, {
-          id: newSplitId(),
-          categoryId: catId,
-          subcategoryId: '',
-          amount: prefillAmount(),
-        }],
-      }))
-    }
+    withScrollPreserved(() => {
+      if (errors.splits) setErrors(prev => ({ ...prev, splits: null }))
+      if (isCatSelected(catId)) {
+        setForm(prev => ({
+          ...prev,
+          splits: prev.splits.filter(s => !(s.categoryId === catId && !s.subcategoryId)),
+        }))
+      } else {
+        setForm(prev => ({
+          ...prev,
+          splits: [...prev.splits, {
+            id: newSplitId(),
+            categoryId: catId,
+            subcategoryId: '',
+            amount: prefillAmount(),
+          }],
+        }))
+      }
+    })
   }
 
   // ── Budget remaining calculations ─────────────────────────────────────────
@@ -540,9 +557,11 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
 
             {/* Grouped picker panel — expands inline */}
             {pickerOpen && (
-              <div className={`mt-1 border rounded-xl bg-white overflow-y-auto shadow-sm ${
-                errors.splits && form.splits.length === 0 ? 'border-red-200' : 'border-slate-200'
-              }`}
+              <div
+                ref={pickerScrollRef}
+                className={`mt-1 border rounded-xl bg-white overflow-y-auto shadow-sm ${
+                  errors.splits && form.splits.length === 0 ? 'border-red-200' : 'border-slate-200'
+                }`}
                 style={{ maxHeight: '224px' }}
               >
                 {visibleCategories.length === 0 && (
