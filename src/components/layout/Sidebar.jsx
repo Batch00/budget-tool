@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Wallet, ArrowLeftRight, BarChart2, Tag, X } from 'lucide-react'
+import { LayoutDashboard, Wallet, ArrowLeftRight, BarChart2, Tag, Settings, X } from 'lucide-react'
 import MonthSelector from '../common/MonthSelector'
 
 const navItems = [
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
   { to: '/analytics', icon: BarChart2, label: 'Analytics' },
   { to: '/categories', icon: Tag, label: 'Categories' },
+  { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 
 export default function Sidebar({ onClose }) {
