@@ -257,6 +257,7 @@ export function AppProvider({ children }) {
         subcategory_id: isSplit ? null : (updates.subcategoryId || null),
       })
       .eq('id', id)
+      .eq('user_id', user.id) // defense-in-depth: RLS enforces this server-side too
 
     if (txErr) { console.error('Failed to update transaction:', txErr); return }
 
@@ -299,7 +300,8 @@ export function AppProvider({ children }) {
 
   const deleteTransaction = useCallback(async (id) => {
     // transaction_splits cascade-delete from the DB schema
-    const { error } = await supabase.from('transactions').delete().eq('id', id)
+    const { error } = await supabase.from('transactions').delete()
+      .eq('id', id).eq('user_id', user.id) // defense-in-depth: RLS enforces this server-side too
     if (error) { console.error('Failed to delete transaction:', error); return }
     setTransactions(prev => prev.filter(t => t.id !== id))
   }, [user])
@@ -418,14 +420,16 @@ export function AppProvider({ children }) {
 
   const updateCategory = useCallback(async (id, updates) => {
     const { error } = await supabase
-      .from('categories').update({ name: updates.name, color: updates.color }).eq('id', id)
+      .from('categories').update({ name: updates.name, color: updates.color })
+      .eq('id', id).eq('user_id', user.id) // defense-in-depth: RLS enforces this server-side too
     if (error) { console.error('Failed to update category:', error); return }
     setCategories(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c))
   }, [user])
 
   const deleteCategory = useCallback(async (id) => {
     // Subcategories and budget_plans cascade-delete from the DB schema
-    const { error } = await supabase.from('categories').delete().eq('id', id)
+    const { error } = await supabase.from('categories').delete()
+      .eq('id', id).eq('user_id', user.id) // defense-in-depth: RLS enforces this server-side too
     if (error) { console.error('Failed to delete category:', error); return }
     setCategories(prev => prev.filter(c => c.id !== id))
   }, [user])
@@ -448,7 +452,8 @@ export function AppProvider({ children }) {
   }, [user, categories])
 
   const updateSubcategory = useCallback(async (categoryId, subId, name) => {
-    const { error } = await supabase.from('subcategories').update({ name }).eq('id', subId)
+    const { error } = await supabase.from('subcategories').update({ name })
+      .eq('id', subId).eq('user_id', user.id) // defense-in-depth: RLS enforces this server-side too
     if (error) { console.error('Failed to update subcategory:', error); return }
     setCategories(prev => prev.map(c =>
       c.id === categoryId
@@ -459,7 +464,8 @@ export function AppProvider({ children }) {
 
   const deleteSubcategory = useCallback(async (categoryId, subId) => {
     // budget_plans rows referencing this subcategory cascade-delete
-    const { error } = await supabase.from('subcategories').delete().eq('id', subId)
+    const { error } = await supabase.from('subcategories').delete()
+      .eq('id', subId).eq('user_id', user.id) // defense-in-depth: RLS enforces this server-side too
     if (error) { console.error('Failed to delete subcategory:', error); return }
     setCategories(prev => prev.map(c =>
       c.id === categoryId
@@ -486,7 +492,8 @@ export function AppProvider({ children }) {
     await Promise.all(
       next
         .filter(c => c.type === type)
-        .map((c, i) => supabase.from('categories').update({ sort_order: i }).eq('id', c.id))
+        .map((c, i) => supabase.from('categories').update({ sort_order: i })
+          .eq('id', c.id).eq('user_id', user.id)) // defense-in-depth
     )
   }, [user, categories])
 
@@ -501,7 +508,8 @@ export function AppProvider({ children }) {
       subs.splice(toIdx, 0, item)
       // Fire-and-forget sort_order updates for all subs in the new order
       subs.forEach((s, i) =>
-        supabase.from('subcategories').update({ sort_order: i }).eq('id', s.id)
+        supabase.from('subcategories').update({ sort_order: i })
+          .eq('id', s.id).eq('user_id', user.id) // defense-in-depth
       )
       return { ...c, subcategories: subs }
     }))
