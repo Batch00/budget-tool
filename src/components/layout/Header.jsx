@@ -7,6 +7,7 @@ const pageTitles = {
   '/transactions': 'Transactions',
   '/analytics': 'Analytics',
   '/categories': 'Categories',
+  '/settings': 'Settings',
 }
 
 export default function Header({ onMenuClick }) {
