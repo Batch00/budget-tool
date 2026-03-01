@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Wallet, ArrowLeftRight, BarChart2, Tag, RefreshCw, Settings, LogOut, X } from 'lucide-react'
+import { LayoutDashboard, Wallet, ArrowLeftRight, BarChart2, Tag, RefreshCw, CalendarDays, Settings, LogOut, X } from 'lucide-react'
 import MonthSelector from '../common/MonthSelector'
 import { useAuth } from '../../context/AuthContext'
 import { LogoFull } from '../common/Logo'
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/budget', icon: Wallet, label: 'Budget' },
   { to: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
+  { to: '/calendar', icon: CalendarDays, label: 'Calendar' },
   { to: '/analytics', icon: BarChart2, label: 'Analytics' },
   { to: '/categories', icon: Tag, label: 'Categories' },
   { to: '/recurring', icon: RefreshCw, label: 'Recurring' },

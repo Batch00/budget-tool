@@ -73,6 +73,17 @@ function dbToRecurringRule(row) {
   }
 }
 
+function dbToPaycheckPlan(row) {
+  return {
+    id: row.id,
+    monthKey: row.month_key,
+    date: row.date,
+    amount: parseFloat(row.amount),
+    label: row.label ?? 'Paycheck',
+    createdAt: row.created_at,
+  }
+}
+
 // Build the full multi-month budgets map from all budget_plan rows
 function dbToBudgets(planRows) {
   const budgets = {}
@@ -102,6 +113,7 @@ export function AppProvider({ children }) {
   const [transactions, setTransactions] = useState([])
   const [budgets, setBudgets] = useState({})
   const [recurringRules, setRecurringRules] = useState([])
+  const [paycheckPlans, setPaycheckPlans] = useState([])
   const [loading, setLoading] = useState(true)
 
   // ── Theme ─────────────────────────────────────────────────────────────────────
@@ -246,6 +258,7 @@ export function AppProvider({ children }) {
       setTransactions([])
       setBudgets({})
       setRecurringRules([])
+      setPaycheckPlans([])
       setLoading(false)
       return
     }
@@ -302,23 +315,25 @@ export function AppProvider({ children }) {
     async function loadAll() {
       // Fetch all user data in parallel — no month scoping needed; Analytics needs all months
       const [
-        { data: catRows,  error: catErr  },
-        { data: subRows,  error: subErr  },
-        { data: txRows,   error: txErr   },
-        { data: planRows, error: planErr },
-        { data: ruleRows, error: ruleErr },
+        { data: catRows,      error: catErr      },
+        { data: subRows,      error: subErr      },
+        { data: txRows,       error: txErr       },
+        { data: planRows,     error: planErr     },
+        { data: ruleRows,     error: ruleErr     },
+        { data: paycheckRows, error: paycheckErr },
       ] = await Promise.all([
-        supabase.from('categories')      .select('*')                     .eq('user_id', user.id).order('sort_order'),
-        supabase.from('subcategories')   .select('*')                     .eq('user_id', user.id).order('sort_order'),
+        supabase.from('categories')      .select('*')                      .eq('user_id', user.id).order('sort_order'),
+        supabase.from('subcategories')   .select('*')                      .eq('user_id', user.id).order('sort_order'),
         supabase.from('transactions')    .select('*, transaction_splits(*)').eq('user_id', user.id).order('date', { ascending: false }),
-        supabase.from('budget_plans')    .select('*')                     .eq('user_id', user.id),
-        supabase.from('recurring_rules') .select('*')                     .eq('user_id', user.id).order('created_at'),
+        supabase.from('budget_plans')    .select('*')                      .eq('user_id', user.id),
+        supabase.from('recurring_rules') .select('*')                      .eq('user_id', user.id).order('created_at'),
+        supabase.from('paycheck_plans')  .select('*')                      .eq('user_id', user.id).order('date'),
       ])
 
-      if (catErr || subErr || txErr || planErr || ruleErr) {
+      if (catErr || subErr || txErr || planErr || ruleErr || paycheckErr) {
         // RLS "permission denied" shows up here as an error (not empty data).
         // Empty data with no error = RLS silently filtering — check Supabase policies.
-        console.error('loadAll — query errors:', { catErr, subErr, txErr, planErr, ruleErr })
+        console.error('loadAll — query errors:', { catErr, subErr, txErr, planErr, ruleErr, paycheckErr })
         setLoading(false)
         return
       }
@@ -328,6 +343,7 @@ export function AppProvider({ children }) {
         transactions: txRows.length,
         budgetPlans: planRows.length,
         recurringRules: (ruleRows ?? []).length,
+        paycheckPlans: (paycheckRows ?? []).length,
       })
 
       const isNewAccount = catRows.length === 0
@@ -341,10 +357,13 @@ export function AppProvider({ children }) {
       const mappedTxns = (txRows ?? []).map(dbToTransaction)
       const mappedRules = (ruleRows ?? []).map(dbToRecurringRule)
 
+      const mappedPaychecks = (paycheckRows ?? []).map(dbToPaycheckPlan)
+
       setCategories(cats)
       setTransactions(mappedTxns)
       setBudgets(dbToBudgets(planRows ?? []))
       setRecurringRules(mappedRules)
+      setPaycheckPlans(mappedPaychecks)
       setLoading(false)
 
       // Generate pending instances for the currently viewed month.
@@ -617,6 +636,43 @@ export function AppProvider({ children }) {
     setRecurringRules(prev => prev.filter(r => r.id !== id))
   }, [user])
 
+  // ── Paycheck Plans ────────────────────────────────────────────────────────────
+
+  const addPaycheckPlan = useCallback(async ({ label, date, amount, monthKey }) => {
+    const { data: row, error } = await supabase
+      .from('paycheck_plans')
+      .insert({ user_id: user.id, month_key: monthKey, date, amount, label })
+      .select()
+      .single()
+    if (error) { console.error('Failed to add paycheck plan:', error); return null }
+    const plan = dbToPaycheckPlan(row)
+    setPaycheckPlans(prev => [...prev, plan])
+    return plan
+  }, [user])
+
+  const updatePaycheckPlan = useCallback(async (id, { label, date, amount }) => {
+    const { data: row, error } = await supabase
+      .from('paycheck_plans')
+      .update({ label, date, amount })
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .select()
+      .single()
+    if (error) { console.error('Failed to update paycheck plan:', error); return }
+    const updated = dbToPaycheckPlan(row)
+    setPaycheckPlans(prev => prev.map(p => p.id === id ? updated : p))
+  }, [user])
+
+  const deletePaycheckPlan = useCallback(async (id) => {
+    const { error } = await supabase
+      .from('paycheck_plans')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id)
+    if (error) { console.error('Failed to delete paycheck plan:', error); return }
+    setPaycheckPlans(prev => prev.filter(p => p.id !== id))
+  }, [user])
+
   // ── Budgets ───────────────────────────────────────────────────────────────────
   // Budget writes use an optimistic update so typing into budget fields feels instant.
   // We use DELETE + INSERT instead of upsert to avoid issues with partial unique indexes.
@@ -840,6 +896,11 @@ export function AppProvider({ children }) {
       .eq('user_id', user.id)
       .eq('month_key', monthKey)
     setBudgets(prev => { const next = { ...prev }; delete next[monthKey]; return next })
+
+    await supabase.from('paycheck_plans').delete()
+      .eq('user_id', user.id)
+      .eq('month_key', monthKey)
+    setPaycheckPlans(prev => prev.filter(p => p.monthKey !== monthKey))
   }, [user])
 
   // ── Clear all user data (for account deletion) ────────────────────────────────
@@ -851,11 +912,13 @@ export function AppProvider({ children }) {
       supabase.from('transactions').delete().eq('user_id', user.id),
       supabase.from('categories').delete().eq('user_id', user.id),
       supabase.from('recurring_rules').delete().eq('user_id', user.id),
+      supabase.from('paycheck_plans').delete().eq('user_id', user.id),
     ])
     setCategories([])
     setTransactions([])
     setBudgets({})
     setRecurringRules([])
+    setPaycheckPlans([])
   }, [user])
 
   // ── Import all data (for Settings restore) ────────────────────────────────────
@@ -954,6 +1017,11 @@ export function AppProvider({ children }) {
     [budgets, currentMonth]
   )
 
+  const currentMonthPaycheckPlans = useMemo(
+    () => paycheckPlans.filter(p => p.monthKey === currentMonth),
+    [paycheckPlans, currentMonth]
+  )
+
   const value = useMemo(() => ({
     currentMonth,
     setCurrentMonth,
@@ -967,6 +1035,11 @@ export function AppProvider({ children }) {
     setTheme,
     isDark,
     recurringRules,
+    paycheckPlans,
+    currentMonthPaycheckPlans,
+    addPaycheckPlan,
+    updatePaycheckPlan,
+    deletePaycheckPlan,
     addTransaction,
     updateTransaction,
     deleteTransaction,
@@ -997,7 +1070,8 @@ export function AppProvider({ children }) {
     categories, transactions, currentMonthTransactions,
     budgets, currentMonthBudget, loading,
     theme, setTheme, isDark,
-    recurringRules,
+    recurringRules, paycheckPlans, currentMonthPaycheckPlans,
+    addPaycheckPlan, updatePaycheckPlan, deletePaycheckPlan,
     addTransaction, updateTransaction, deleteTransaction, confirmTransaction,
     addRecurringRule, updateRecurringRule, pauseRecurringRule, deleteRecurringRule, generateRecurringInstances,
     setBudgetAmount, getMonthBudget,

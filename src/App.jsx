@@ -9,6 +9,7 @@ import Transactions from './views/Transactions'
 import Analytics from './views/Analytics'
 import Categories from './views/Categories'
 import Recurring from './views/Recurring'
+import Calendar from './views/Calendar'
 import Settings from './views/Settings'
 import Auth from './views/Auth'
 
@@ -39,6 +40,7 @@ function AppRoutes() {
         <Route path="analytics" element={<Analytics />} />
         <Route path="categories" element={<Categories />} />
         <Route path="recurring" element={<Recurring />} />
+        <Route path="calendar" element={<Calendar />} />
         <Route path="settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
