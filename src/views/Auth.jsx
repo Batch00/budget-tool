@@ -50,7 +50,7 @@ export default function Auth() {
             <LogoMark size={48} />
           </div>
           <h1 className="text-2xl font-bold text-slate-900">BatchFlow</h1>
-          <p className="text-sm text-slate-500 mt-1">Own your flow.</p>
+          <p className="text-sm text-slate-500 mt-1">Own your flow</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
