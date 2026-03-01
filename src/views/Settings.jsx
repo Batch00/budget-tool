@@ -407,55 +407,6 @@ export default function Settings() {
             )}
           </div>
 
-          {/* Danger zone */}
-          <div className="p-6">
-            <h3 className="text-sm font-semibold text-red-600 mb-1">Danger Zone</h3>
-            <p className="text-sm text-slate-500 mb-3">
-              Permanently delete all your data and sign out. This cannot be undone.
-            </p>
-            {!deleteOpen ? (
-              <button
-                onClick={() => setDeleteOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 text-sm font-medium rounded-lg border border-red-200 hover:bg-red-100 transition-colors"
-              >
-                <Trash2 size={14} />
-                Delete Account Data
-              </button>
-            ) : (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                <div className="flex items-start gap-2 mb-3">
-                  <AlertTriangle size={14} className="text-red-500 mt-0.5 shrink-0" />
-                  <p className="text-sm text-red-800">
-                    This will delete all transactions, budgets, and categories, then sign you out.
-                    Type <strong>DELETE</strong> to confirm.
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={deleteInput}
-                    onChange={e => setDeleteInput(e.target.value)}
-                    placeholder="Type DELETE"
-                    className="flex-1 min-w-0 text-sm px-3 py-2 border border-red-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400 bg-white"
-                  />
-                  <button
-                    onClick={handleDeleteAccount}
-                    disabled={deleteInput !== 'DELETE' || deleteLoading}
-                    className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
-                  >
-                    {deleteLoading ? 'Deleting…' : 'Delete'}
-                  </button>
-                  <button
-                    onClick={() => { setDeleteOpen(false); setDeleteInput('') }}
-                    className="px-3 py-2 bg-white text-slate-700 text-sm font-medium rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors shrink-0"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
         </div>
       </section>
 
@@ -688,6 +639,57 @@ export default function Settings() {
               </p>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ── Danger Zone ──────────────────────────────────────────────── */}
+      <section>
+        <h2 className="text-xs font-semibold text-red-500 uppercase tracking-wider mb-3">Danger Zone</h2>
+        <div className="bg-white rounded-xl border border-red-200 p-6">
+          <p className="text-sm text-slate-500 mb-3">
+            Permanently delete all your data and sign out. This cannot be undone.
+          </p>
+          {!deleteOpen ? (
+            <button
+              onClick={() => setDeleteOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 text-sm font-medium rounded-lg border border-red-200 hover:bg-red-100 transition-colors"
+            >
+              <Trash2 size={14} />
+              Delete Account Data
+            </button>
+          ) : (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-start gap-2 mb-3">
+                <AlertTriangle size={14} className="text-red-500 mt-0.5 shrink-0" />
+                <p className="text-sm text-red-800">
+                  This will delete all transactions, budgets, and categories, then sign you out.
+                  Type <strong>DELETE</strong> to confirm.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={deleteInput}
+                  onChange={e => setDeleteInput(e.target.value)}
+                  placeholder="Type DELETE"
+                  className="flex-1 min-w-0 text-sm px-3 py-2 border border-red-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400 bg-white"
+                />
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deleteInput !== 'DELETE' || deleteLoading}
+                  className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+                >
+                  {deleteLoading ? 'Deleting…' : 'Delete'}
+                </button>
+                <button
+                  onClick={() => { setDeleteOpen(false); setDeleteInput('') }}
+                  className="px-3 py-2 bg-white text-slate-700 text-sm font-medium rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors shrink-0"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
