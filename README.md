@@ -1,26 +1,26 @@
 # BatchFlow
-### Own your flow
+*Own your flow*
 
-A personal zero-based budgeting web app. Plan income and expenses by category, log transactions, and track spending in real time — backed by Supabase with per-user auth and deployed on Vercel. Installable as a PWA on iOS and Android.
+A personal zero-based budgeting web app. Plan income and expenses by category, log transactions, and track spending in real time. Backed by Supabase with per-user auth and deployed on Vercel. Installable as a PWA on iOS and Android.
 
 ---
 
 ## Features
 
-- **Zero-based budgeting** — assign every dollar of income to a category; the unbudgeted remainder is always visible
-- **Month navigation** — each month has its own independent budget plan and transaction set; navigate freely with a Today button to jump back to the current month
-- **New-month copy experience** — arriving at a month with no budget prompts you to copy amounts from an adjacent month or start fresh
-- **Budget planning** — set planned amounts at the category or subcategory level with inline editing; category totals roll up automatically from subcategory values
-- **Dashboard** — planned vs. actual vs. remaining for every category, color-coded progress bars, and a recent activity panel
-- **Transaction logging** — record transactions with amount, date, category, subcategory, merchant, and notes
-- **Split transactions** — split a single transaction across multiple categories and subcategories (e.g. a shopping trip covering groceries and clothing)
-- **Quick transaction entry** — floating action button on the Dashboard and Transactions pages opens the transaction form without navigating away
-- **Category management** — add, rename (inline double-click), reorder (arrow buttons), and delete income and expense categories
-- **Subcategory management** — add, rename (inline double-click), drag-and-drop reorder, and delete; renaming from the Budget page is also supported and syncs everywhere
-- **Analytics** — pie chart category breakdown, monthly spending bar chart, and income vs. expense line chart across recent months
-- **Settings** — install prompt for PWA, account info, preferences (currency, week start, default page), JSON data export and import for full backup and restore
-- **PWA** — installable on iOS and Android directly from the browser; app shell and static assets are cached for offline use; Supabase API calls use a network-first strategy
-- **Multi-user auth** — email/password sign in and sign up via Supabase; every user's data is fully isolated at the database level via Postgres row-level security
+- **Zero-based budgeting** - assign every dollar of income to a category; the unbudgeted remainder is always visible
+- **Month navigation** - each month has its own independent budget plan and transaction set; navigate freely with a Today button to jump back to the current month
+- **New-month copy experience** - arriving at a month with no budget prompts you to copy amounts from an adjacent month or start fresh
+- **Budget planning** - set planned amounts at the category or subcategory level with inline editing; category totals roll up automatically from subcategory values
+- **Dashboard** - planned vs. actual vs. remaining for every category, color-coded progress bars, and a recent activity panel
+- **Transaction logging** - record transactions with amount, date, category, subcategory, merchant, and notes
+- **Split transactions** - split a single transaction across multiple categories and subcategories (e.g. a shopping trip covering groceries and clothing)
+- **Quick transaction entry** - floating action button on the Dashboard and Transactions pages opens the transaction form without navigating away
+- **Category management** - add, rename (inline double-click), reorder (arrow buttons), and delete income and expense categories
+- **Subcategory management** - add, rename (inline double-click), drag-and-drop reorder, and delete; renaming from the Budget page syncs everywhere
+- **Analytics** - pie chart category breakdown, monthly spending bar chart, and income vs. expense line chart across recent months
+- **Settings** - install prompt for PWA, account info, preferences (currency, week start, default page), JSON data export and import for full backup and restore
+- **PWA** - installable on iOS and Android directly from the browser; app shell and static assets are cached for offline use; Supabase API calls use a network-first strategy
+- **Multi-user auth** - email/password sign in and sign up via Supabase; every user's data is isolated at the database level via Postgres row-level security
 
 ---
 
@@ -28,12 +28,12 @@ A personal zero-based budgeting web app. Plan income and expenses by category, l
 
 | Technology | Role |
 |---|---|
-| [React 18](https://react.dev/) | UI framework — functional components and hooks throughout |
+| [React 18](https://react.dev/) | UI framework - functional components and hooks throughout |
 | [Tailwind CSS v4](https://tailwindcss.com/) | Utility-first styling via the `@tailwindcss/vite` plugin; no `tailwind.config.js` needed |
 | [Vite](https://vitejs.dev/) | Build tool and local dev server |
 | [vite-plugin-pwa](https://vite-pwa-org.netlify.app/) | PWA manifest, service worker generation, and Workbox caching config |
 | [Supabase](https://supabase.com/) | Postgres database, email/password authentication, and row-level security for per-user data isolation |
-| [Vercel](https://vercel.com/) | Hosting — every push to `main` triggers an automatic production deployment |
+| [Vercel](https://vercel.com/) | Hosting - every push to `main` triggers an automatic production deployment |
 | [Recharts](https://recharts.org/) | Charts in the Analytics view |
 | [React Router v6](https://reactrouter.com/) | Client-side routing |
 | [@dnd-kit](https://dndkit.com/) | Drag-and-drop subcategory reordering |
@@ -60,7 +60,7 @@ VITE_SUPABASE_URL=your_supabase_project_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-Both values are in your Supabase project under **Settings → API**.
+Both values are in your Supabase project under **Settings -> API**.
 
 ### 3. Start the dev server
 
@@ -84,10 +84,10 @@ Open [http://localhost:5173](http://localhost:5173).
 
 1. Push the repository to GitHub
 2. Import the repo in the [Vercel dashboard](https://vercel.com/new)
-3. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` under **Settings → Environment Variables**
-4. Deploy — Vercel detects Vite automatically; no custom build settings required
+3. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` under **Settings -> Environment Variables**
+4. Deploy - Vercel detects Vite automatically; no custom build settings required
 
-Every subsequent push to `main` triggers a new production deployment automatically.
+Every subsequent push to `main` deploys to production automatically.
 
 ---
 
@@ -129,11 +129,11 @@ src/
 All data lives in Supabase (Postgres). Every table has a `user_id` column; RLS policies ensure users can only access their own rows.
 
 ```
-categories         — id, user_id, name, type ('income'|'expense'), color, sort_order
-subcategories      — id, category_id, user_id, name, sort_order
-transactions       — id, user_id, date, amount, type, merchant, notes, is_split, category_id, subcategory_id
-transaction_splits — id, transaction_id, category_id, subcategory_id, amount
-budget_plans       — id, user_id, month_key (YYYY-MM), category_id, subcategory_id, planned_amount
+categories         - id, user_id, name, type ('income'|'expense'), color, sort_order
+subcategories      - id, category_id, user_id, name, sort_order
+transactions       - id, user_id, date, amount, type, merchant, notes, is_split, category_id, subcategory_id
+transaction_splits - id, transaction_id, category_id, subcategory_id, amount
+budget_plans       - id, user_id, month_key (YYYY-MM), category_id, subcategory_id, planned_amount
 ```
 
 Cascade deletes: removing a category removes its subcategories and budget plans; removing a transaction removes its splits; removing a subcategory removes its budget plans.
