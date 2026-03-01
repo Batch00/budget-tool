@@ -75,16 +75,14 @@ function PieTooltip({ active, payload }) {
 function SummaryChip({ label, value, sub, colorClass, icon: Icon }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-xs text-slate-500">{label}</p>
-          <p className="text-xl font-bold text-slate-800 mt-0.5 truncate">{value}</p>
-          {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
-        </div>
+      <div className="flex items-start justify-between gap-2 mb-1">
+        <p className="text-xs text-slate-500">{label}</p>
         <div className={`p-2 rounded-lg flex-shrink-0 ${colorClass}`}>
           <Icon size={16} />
         </div>
       </div>
+      <p className="text-xl font-bold text-slate-800 tabular-nums">{value}</p>
+      {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
     </div>
   )
 }

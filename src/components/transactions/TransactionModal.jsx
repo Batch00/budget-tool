@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
-import { X, ChevronDown, Check } from 'lucide-react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { flushSync } from 'react-dom'
+import { X, ChevronDown, Check, Search } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { getTodayString } from '../../utils/formatters'
 import {
@@ -23,6 +24,7 @@ const emptyForm = () => ({
 export default function TransactionModal({ isOpen, onClose, editingTransaction = null }) {
   const {
     categories,
+    transactions,
     addTransaction,
     updateTransaction,
     currentMonthTransactions,
@@ -33,19 +35,34 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
   const [form, setForm] = useState(emptyForm)
   const [errors, setErrors] = useState({})
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerSearch, setPickerSearch] = useState('')
+  const [merchantFocused, setMerchantFocused] = useState(false)
 
-  // Ref for the scrollable picker panel — used to preserve scroll position
-  // when selections are toggled, because React re-renders can reset scroll.
+  // Ref for the scrollable picker panel - used to preserve scroll position
   const pickerScrollRef = useRef(null)
 
-  // Run `fn` then restore the picker's scroll position after React commits the update.
-  const withScrollPreserved = (fn) => {
-    const scrollTop = pickerScrollRef.current?.scrollTop ?? 0
-    fn()
-    requestAnimationFrame(() => {
-      if (pickerScrollRef.current) pickerScrollRef.current.scrollTop = scrollTop
-    })
-  }
+  // Unique merchant names derived from all past transactions, preserving recency order
+  const merchantOptions = useMemo(() => {
+    const seen = new Set()
+    const result = []
+    for (const t of transactions) {
+      if (t.merchant && !seen.has(t.merchant)) {
+        seen.add(t.merchant)
+        result.push(t.merchant)
+      }
+    }
+    return result
+  }, [transactions])
+
+  // Suggestions matching current merchant input
+  const merchantSuggestions = useMemo(() => {
+    const val = form.merchant.trim()
+    if (!val || !merchantFocused) return []
+    const q = val.toLowerCase()
+    return merchantOptions
+      .filter(m => m.toLowerCase().includes(q) && m !== form.merchant)
+      .slice(0, 6)
+  }, [form.merchant, merchantFocused, merchantOptions])
 
   // Populate form when modal opens
   useEffect(() => {
@@ -80,13 +97,13 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
       }
     } else {
       // Default date to today if it falls within the viewed month; otherwise use the 1st of that month.
-      // This prevents transactions from silently landing in the wrong month when the user is browsing history.
       const todayStr = getTodayString()
       const defaultDate = todayStr.startsWith(currentMonth) ? todayStr : `${currentMonth}-01`
       setForm({ ...emptyForm(), date: defaultDate })
     }
     setErrors({})
     setPickerOpen(false)
+    setPickerSearch('')
   }, [isOpen, editingTransaction])
 
   // Derive the locked type from the first split that has a category selected
@@ -120,7 +137,7 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: null }))
   }
 
-  // Format a raw amount string to two decimal places on blur (e.g. "50" → "50.00")
+  // Format a raw amount string to two decimal places on blur (e.g. "50" -> "50.00")
   const formatAmountOnBlur = (value, setter) => {
     const num = parseFloat(value)
     if (!isNaN(num) && num > 0) setter(num.toFixed(2))
@@ -152,6 +169,14 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
   const prefillAmount = () => {
     const pre = Math.max(0, remaining)
     return pre > 0 ? String(pre) : ''
+  }
+
+  // Use flushSync so the DOM is fully updated before we restore scroll,
+  // preventing the jump on first selection.
+  const withScrollPreserved = (fn) => {
+    const scrollTop = pickerScrollRef.current?.scrollTop ?? 0
+    flushSync(fn)
+    if (pickerScrollRef.current) pickerScrollRef.current.scrollTop = scrollTop
   }
 
   const toggleSubItem = (catId, subId) => {
@@ -200,7 +225,6 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
 
   // ── Budget remaining calculations ─────────────────────────────────────────
 
-  // Returns null if no budget is set (nothing to display)
   const getSubRemainingDisplay = (subId) => {
     const planned = getSubcategoryPlanned(currentMonthBudget, subId)
     if (!planned) return null
@@ -306,8 +330,27 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
     ? categories.filter(c => c.type === lockedType)
     : categories
 
-  const incomeVisible = visibleCategories.filter(c => c.type === 'income')
-  const expenseVisible = visibleCategories.filter(c => c.type === 'expense')
+  // Real-time search filter: matches on category name or subcategory name
+  const searchFilteredCategories = useMemo(() => {
+    const q = pickerSearch.trim().toLowerCase()
+    if (!q) return visibleCategories
+    return visibleCategories.reduce((acc, cat) => {
+      const catMatch = cat.name.toLowerCase().includes(q)
+      if (cat.subcategories.length === 0) {
+        if (catMatch) acc.push(cat)
+      } else {
+        const subs = catMatch
+          ? cat.subcategories
+          : cat.subcategories.filter(s => s.name.toLowerCase().includes(q))
+        if (subs.length > 0) acc.push({ ...cat, subcategories: subs })
+      }
+      return acc
+    }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleCategories, pickerSearch])
+
+  const incomeFiltered = searchFilteredCategories.filter(c => c.type === 'income')
+  const expenseFiltered = searchFilteredCategories.filter(c => c.type === 'expense')
 
   // Trigger button label
   const selectedLabels = form.splits.map(s => {
@@ -324,8 +367,6 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
     : `${selectedLabels.length} items selected`
 
   // Render a single selectable row (subcategory or standalone category).
-  // When selected: shows an inline amount input instead of budget remaining so
-  // adding/removing selections never changes layout outside the picker panel.
   const renderPickerRow = ({ key, catId, subId, name, rem, isSelected, toggleFn, indent }) => {
     const existingSplit = isSelected
       ? form.splits.find(s => s.categoryId === catId && (subId ? s.subcategoryId === subId : !s.subcategoryId))
@@ -338,7 +379,7 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
           isSelected ? 'bg-indigo-50' : 'hover:bg-slate-50'
         }`}
       >
-        {/* Checkbox + name — clicking this area toggles selection */}
+        {/* Checkbox + name */}
         <button
           type="button"
           onClick={toggleFn}
@@ -396,7 +437,6 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
       <div key={cat.id}>
         {cat.subcategories.length > 0 ? (
           <>
-            {/* Non-selectable category header */}
             <div className="px-3 pt-2.5 pb-1 text-[10px] font-bold tracking-widest uppercase text-indigo-500 select-none">
               {cat.name}
             </div>
@@ -426,6 +466,8 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
       </div>
     ))
 
+  const hasPickerError = errors.splits && form.splits.length === 0
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -449,8 +491,8 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Amount + Date */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Amount + Date — stacked on mobile, side by side on sm+ */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1.5">
                 Amount <span className="text-red-400">*</span>
@@ -492,16 +534,35 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
             </div>
           </div>
 
-          {/* Merchant */}
+          {/* Merchant with autocomplete */}
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1.5">Merchant</label>
-            <input
-              type="text"
-              placeholder="e.g. Target, Netflix…"
-              value={form.merchant}
-              onChange={e => setField('merchant', e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-colors"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="e.g. Target, Netflix..."
+                value={form.merchant}
+                onChange={e => setField('merchant', e.target.value)}
+                onFocus={() => setMerchantFocused(true)}
+                onBlur={() => setTimeout(() => setMerchantFocused(false), 150)}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-colors"
+              />
+              {merchantSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
+                  {merchantSuggestions.map(m => (
+                    <button
+                      key={m}
+                      type="button"
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => { setField('merchant', m); setMerchantFocused(false) }}
+                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0"
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Notes */}
@@ -509,7 +570,7 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
             <label className="block text-xs font-medium text-slate-600 mb-1.5">Notes</label>
             <input
               type="text"
-              placeholder="Optional notes…"
+              placeholder="Optional notes..."
               value={form.notes}
               onChange={e => setField('notes', e.target.value)}
               className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-colors"
@@ -522,7 +583,6 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
               <label className="text-xs font-medium text-slate-600">
                 Budget Item <span className="text-red-400">*</span>
               </label>
-              {/* Live remaining counter */}
               {(form.splits.length > 0 || form.amount) && (
                 <span className={`text-xs font-medium ${remainingColor}`}>
                   {Math.abs(remaining) < 0.01
@@ -539,7 +599,7 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
               type="button"
               onClick={() => setPickerOpen(v => !v)}
               className={`w-full flex items-center justify-between px-3 py-2 text-sm border rounded-lg bg-white transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-200 ${
-                errors.splits && form.splits.length === 0
+                hasPickerError
                   ? 'border-red-300'
                   : pickerOpen
                   ? 'border-indigo-400 ring-2 ring-indigo-200'
@@ -547,7 +607,7 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
               }`}
             >
               <span className={`truncate ${triggerLabel ? 'text-slate-800' : 'text-slate-400'}`}>
-                {triggerLabel ?? 'Choose Budget Item(s)…'}
+                {triggerLabel ?? 'Choose Budget Item(s)...'}
               </span>
               <ChevronDown
                 size={15}
@@ -555,37 +615,56 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
               />
             </button>
 
-            {/* Grouped picker panel — expands inline */}
+            {/* Picker panel - search bar + scrollable list */}
             {pickerOpen && (
-              <div
-                ref={pickerScrollRef}
-                className={`mt-1 border rounded-xl bg-white overflow-y-auto shadow-sm ${
-                  errors.splits && form.splits.length === 0 ? 'border-red-200' : 'border-slate-200'
-                }`}
-                style={{ maxHeight: '224px' }}
-              >
-                {visibleCategories.length === 0 && (
-                  <p className="px-4 py-3 text-sm text-slate-400">No categories available.</p>
-                )}
+              <div className={`mt-1 border rounded-xl bg-white shadow-sm overflow-hidden ${
+                hasPickerError ? 'border-red-200' : 'border-slate-200'
+              }`}>
+                {/* Search input */}
+                <div className="p-2 border-b border-slate-100">
+                  <div className="relative">
+                    <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={pickerSearch}
+                      onChange={e => setPickerSearch(e.target.value)}
+                      placeholder="Search categories..."
+                      className="w-full pl-7 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-colors"
+                    />
+                  </div>
+                </div>
 
-                {/* Show type section headers only when both types are visible */}
-                {!lockedType && incomeVisible.length > 0 && expenseVisible.length > 0 && (
-                  <>
-                    <div className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase text-slate-400 bg-slate-50 border-b border-slate-100 sticky top-0">
-                      Income
-                    </div>
-                    {renderCategoryGroup(incomeVisible)}
-                    <div className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase text-slate-400 bg-slate-50 border-t border-b border-slate-100 sticky top-0">
-                      Expenses
-                    </div>
-                    {renderCategoryGroup(expenseVisible)}
-                  </>
-                )}
+                {/* Scrollable category list */}
+                <div
+                  ref={pickerScrollRef}
+                  className="overflow-y-auto"
+                  style={{ maxHeight: '192px' }}
+                >
+                  {searchFilteredCategories.length === 0 && (
+                    <p className="px-4 py-3 text-sm text-slate-400">
+                      {pickerSearch ? 'No matches found.' : 'No categories available.'}
+                    </p>
+                  )}
 
-                {/* Single type visible (locked or only one type exists) */}
-                {(lockedType || incomeVisible.length === 0 || expenseVisible.length === 0) && (
-                  renderCategoryGroup(visibleCategories)
-                )}
+                  {/* Show type section headers only when both types are visible and unlocked */}
+                  {!lockedType && incomeFiltered.length > 0 && expenseFiltered.length > 0 && (
+                    <>
+                      <div className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase text-slate-400 bg-slate-50 border-b border-slate-100 sticky top-0">
+                        Income
+                      </div>
+                      {renderCategoryGroup(incomeFiltered)}
+                      <div className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase text-slate-400 bg-slate-50 border-t border-b border-slate-100 sticky top-0">
+                        Expenses
+                      </div>
+                      {renderCategoryGroup(expenseFiltered)}
+                    </>
+                  )}
+
+                  {/* Single type visible (locked or only one type exists after filtering) */}
+                  {(lockedType || incomeFiltered.length === 0 || expenseFiltered.length === 0) && (
+                    renderCategoryGroup(searchFilteredCategories)
+                  )}
+                </div>
               </div>
             )}
 
