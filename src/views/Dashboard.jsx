@@ -15,15 +15,15 @@ import ProgressBar from '../components/common/ProgressBar'
 
 function SummaryCard({ icon: Icon, label, amount, subtitle, colorClass }) {
   return (
-    <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
-      <div className="flex items-start justify-between">
-        <div>
+    <div className="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-slate-200">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
           <p className="text-sm text-slate-500">{label}</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">{formatCurrency(amount)}</p>
+          <p className="text-xl sm:text-2xl font-bold text-slate-800 mt-1 truncate">{formatCurrency(amount)}</p>
           {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
         </div>
-        <div className={`p-2.5 rounded-lg ${colorClass}`}>
-          <Icon size={20} />
+        <div className={`flex-shrink-0 p-2 sm:p-2.5 rounded-lg ${colorClass}`}>
+          <Icon size={18} />
         </div>
       </div>
     </div>

@@ -1,5 +1,7 @@
 import { useLocation } from 'react-router-dom'
 import { Menu } from 'lucide-react'
+import { useApp } from '../../context/AppContext'
+import { formatMonthLabel } from '../../utils/formatters'
 
 const pageTitles = {
   '/': 'Dashboard',
@@ -13,6 +15,7 @@ const pageTitles = {
 export default function Header({ onMenuClick }) {
   const { pathname } = useLocation()
   const title = pageTitles[pathname] ?? 'BatchFlow'
+  const { currentMonth } = useApp()
 
   return (
     <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-3.5 flex items-center gap-4 shrink-0">
@@ -24,6 +27,9 @@ export default function Header({ onMenuClick }) {
         <Menu size={20} />
       </button>
       <h2 className="text-lg font-semibold text-slate-800">{title}</h2>
+      <span className="ml-auto text-sm font-medium text-slate-500 md:hidden">
+        {formatMonthLabel(currentMonth)}
+      </span>
     </header>
   )
 }
