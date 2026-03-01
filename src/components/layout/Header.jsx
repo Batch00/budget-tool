@@ -18,7 +18,7 @@ export default function Header({ onMenuClick }) {
   const { currentMonth } = useApp()
 
   return (
-    <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 md:px-6 py-3.5 flex items-center gap-4 shrink-0">
+    <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 md:px-6 py-[22px] flex items-center gap-4 shrink-0">
       <button
         onClick={onMenuClick}
         className="md:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
