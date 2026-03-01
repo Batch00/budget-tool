@@ -1,9 +1,15 @@
 export function formatCurrency(amount) {
+  // Read currency preference from localStorage on each call so changes take
+  // effect on the next render without requiring a context plumb-through.
+  let currency = 'USD'
+  try {
+    const raw = localStorage.getItem('batchflow:preferences')
+    if (raw) currency = JSON.parse(raw).currency ?? 'USD'
+  } catch {}
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    currency,
+    // Let Intl decide decimal places per currency (e.g. JPY = 0, USD = 2)
   }).format(amount ?? 0)
 }
 

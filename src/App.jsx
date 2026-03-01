@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import { useApp } from './context/AppContext'
+import { loadData } from './utils/storage'
 import Layout from './components/layout/Layout'
 import Dashboard from './views/Dashboard'
 import Budget from './views/Budget'
@@ -9,6 +10,13 @@ import Analytics from './views/Analytics'
 import Categories from './views/Categories'
 import Settings from './views/Settings'
 import Auth from './views/Auth'
+
+// Reads the user's defaultPage preference and redirects away from '/' if set.
+function DefaultPage() {
+  const defaultPage = loadData('preferences', null)?.defaultPage ?? '/'
+  if (defaultPage !== '/') return <Navigate to={defaultPage} replace />
+  return <Dashboard />
+}
 
 function AppRoutes() {
   const { loading } = useApp()
@@ -24,7 +32,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Layout />}>
-        <Route index element={<Dashboard />} />
+        <Route index element={<DefaultPage />} />
         <Route path="budget" element={<Budget />} />
         <Route path="transactions" element={<Transactions />} />
         <Route path="analytics" element={<Analytics />} />

@@ -31,8 +31,14 @@ export function AuthProvider({ children }) {
 
   const signOut = () => supabase.auth.signOut()
 
+  const updateEmail = (newEmail) =>
+    supabase.auth.updateUser({ email: newEmail })
+
+  const updatePassword = (newPassword) =>
+    supabase.auth.updateUser({ password: newPassword })
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateEmail, updatePassword }}>
       {children}
     </AuthContext.Provider>
   )

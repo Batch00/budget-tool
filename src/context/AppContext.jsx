@@ -515,6 +515,36 @@ export function AppProvider({ children }) {
     }))
   }, [user])
 
+  // ── Clear month data ──────────────────────────────────────────────────────────
+
+  const clearMonthData = useCallback(async (monthKey) => {
+    // Deletes all transactions and budget plans for a single month.
+    // transaction_splits cascade-delete from the DB schema.
+    await supabase.from('transactions').delete()
+      .eq('user_id', user.id)
+      .like('date', `${monthKey}%`)
+    setTransactions(prev => prev.filter(t => !t.date?.startsWith(monthKey)))
+
+    await supabase.from('budget_plans').delete()
+      .eq('user_id', user.id)
+      .eq('month_key', monthKey)
+    setBudgets(prev => { const next = { ...prev }; delete next[monthKey]; return next })
+  }, [user])
+
+  // ── Clear all user data (for account deletion) ────────────────────────────────
+
+  const clearAllData = useCallback(async () => {
+    // Deleting categories cascades to subcategories and budget_plans.
+    // Deleting transactions cascades to transaction_splits.
+    await Promise.all([
+      supabase.from('transactions').delete().eq('user_id', user.id),
+      supabase.from('categories').delete().eq('user_id', user.id),
+    ])
+    setCategories([])
+    setTransactions([])
+    setBudgets({})
+  }, [user])
+
   // ── Import all data (for Settings restore) ────────────────────────────────────
 
   const importAllData = useCallback(async (backup) => {
@@ -637,6 +667,8 @@ export function AppProvider({ children }) {
     copyBudget,
     moveSubcategory,
     importAllData,
+    clearMonthData,
+    clearAllData,
   }), [
     currentMonth, setCurrentMonth,
     categories, transactions, currentMonthTransactions,
@@ -646,7 +678,7 @@ export function AppProvider({ children }) {
     resetMonthBudget, setSubcategoryBudgetAmount, copyBudget, moveSubcategory,
     addCategory, updateCategory, deleteCategory,
     addSubcategory, updateSubcategory, deleteSubcategory,
-    moveCategory, importAllData,
+    moveCategory, importAllData, clearMonthData, clearAllData,
   ])
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
