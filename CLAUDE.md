@@ -1,4 +1,4 @@
-# Budget Tool - Claude Instructions
+# BatchFlow - Claude Instructions
 
 ## Project Overview
 A personal budgeting web app inspired by EveryDollar. Built for personal use with a focus on clean UI and ease of use. Backed by Supabase (Postgres + auth) and deployed on Vercel.

@@ -1,7 +1,7 @@
 // localStorage is now only used for the currentMonth UI preference.
 // All app data (categories, transactions, budgets) lives in Supabase.
 
-const PREFIX = 'budget-tool:'
+const PREFIX = 'batchflow:'
 
 export function loadData(key, defaultValue = null) {
   try {

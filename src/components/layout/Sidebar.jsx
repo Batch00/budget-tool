@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, Wallet, ArrowLeftRight, BarChart2, Tag, Settings, LogOut, X } from 'lucide-react'
 import MonthSelector from '../common/MonthSelector'
 import { useAuth } from '../../context/AuthContext'
+import { LogoFull } from '../common/Logo'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
@@ -19,10 +20,7 @@ export default function Sidebar({ onClose }) {
     <div className="h-full w-64 bg-slate-900 text-white flex flex-col">
       {/* Logo */}
       <div className="flex items-center justify-between p-5 border-b border-slate-700">
-        <div>
-          <h1 className="text-lg font-bold text-white">Budget Tool</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Zero-based budgeting</p>
-        </div>
+        <LogoFull />
         <button
           onClick={onClose}
           className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
@@ -67,7 +65,7 @@ export default function Sidebar({ onClose }) {
           <LogOut size={17} />
           Sign out
         </button>
-        <p className="text-xs text-slate-600 text-center pt-1">Budget Tool v0.1.0</p>
+        <p className="text-xs text-slate-600 text-center pt-1">BatchFlow v0.1.0</p>
       </div>
     </div>
   )

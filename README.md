@@ -1,4 +1,4 @@
-# Budget Tool
+# BatchFlow
 
 A personal zero-based budgeting web app inspired by EveryDollar. Plan income and expenses by category, log transactions, and track spending — backed by Supabase with multi-user auth and deployed on Vercel.
 

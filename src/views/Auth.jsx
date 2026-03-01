@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { LogoMark } from '../components/common/Logo'
 
 export default function Auth() {
   const { signIn, signUp } = useAuth()
@@ -45,8 +46,11 @@ export default function Auth() {
 
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-slate-900">Budget Tool</h1>
-          <p className="text-sm text-slate-500 mt-1">Zero-based budgeting</p>
+          <div className="flex justify-center mb-3">
+            <LogoMark size={48} />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900">BatchFlow</h1>
+          <p className="text-sm text-slate-500 mt-1">Your money, your plan</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">

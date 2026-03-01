@@ -12,7 +12,7 @@ const pageTitles = {
 
 export default function Header({ onMenuClick }) {
   const { pathname } = useLocation()
-  const title = pageTitles[pathname] ?? 'Budget Tool'
+  const title = pageTitles[pathname] ?? 'BatchFlow'
 
   return (
     <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-3.5 flex items-center gap-4 shrink-0">
