@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { RotateCcw } from 'lucide-react'
+import { RotateCcw, Check, X } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { formatCurrency, formatMonthLabel } from '../utils/formatters'
 import {
@@ -57,16 +57,92 @@ function AmountInput({ value: planned, onUpdate, inputClass = '', displayClass =
   )
 }
 
-// ── Subcategory row with editable amount ──────────────────────────────────────
+// ── Inline name editor (shared between category and subcategory rows) ──────────
 
-function SubcategoryBudgetRow({ subcategory, planned, onUpdate }) {
+function InlineNameInput({ value, onCommit, onCancel, className = '' }) {
+  const [draft, setDraft] = useState(value)
+
+  const commit = () => {
+    const trimmed = draft.trim()
+    onCommit(trimmed || value)
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commit() }
+    if (e.key === 'Escape') onCancel()
+  }
+
   return (
-    <div className="flex items-center justify-between py-2 pl-7 border-b border-slate-50 last:border-0">
-      <div className="flex items-center gap-2">
+    <>
+      <input
+        type="text"
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={handleKeyDown}
+        autoFocus
+        className={`flex-1 min-w-0 text-sm border border-indigo-300 rounded-md px-2 py-0.5 outline-none focus:ring-2 focus:ring-indigo-200 ${className}`}
+      />
+      <button
+        type="button"
+        onMouseDown={e => e.preventDefault()} // keep focus on input
+        onClick={commit}
+        className="p-1 rounded text-indigo-600 hover:bg-indigo-50 flex-shrink-0 transition-colors"
+        title="Save"
+      >
+        <Check size={13} />
+      </button>
+      <button
+        type="button"
+        onMouseDown={e => e.preventDefault()}
+        onClick={onCancel}
+        className="p-1 rounded text-slate-400 hover:bg-slate-100 flex-shrink-0 transition-colors"
+        title="Cancel"
+      >
+        <X size={13} />
+      </button>
+    </>
+  )
+}
+
+// ── Subcategory row with editable name + editable amount ──────────────────────
+
+function SubcategoryBudgetRow({ categoryId, subcategory, planned, onUpdate }) {
+  const { updateSubcategory } = useApp()
+  const [nameEditing, setNameEditing] = useState(false)
+
+  const startNameEdit = () => setNameEditing(true)
+
+  const commitName = (trimmed) => {
+    if (trimmed && trimmed !== subcategory.name) {
+      updateSubcategory(categoryId, subcategory.id, trimmed)
+    }
+    setNameEditing(false)
+  }
+
+  return (
+    <div className="flex items-center py-2 pl-7 border-b border-slate-50 last:border-0 gap-2">
+      {/* Left: dot + name (or name input) */}
+      <div className="flex items-center gap-2 flex-1 min-w-0">
         <div className="w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0" />
-        <span className="text-sm text-slate-500">{subcategory.name}</span>
+        {nameEditing ? (
+          <InlineNameInput
+            value={subcategory.name}
+            onCommit={commitName}
+            onCancel={() => setNameEditing(false)}
+          />
+        ) : (
+          <span
+            className="text-sm text-slate-500 cursor-default select-none"
+            onDoubleClick={startNameEdit}
+            title="Double-click to rename"
+          >
+            {subcategory.name}
+          </span>
+        )}
       </div>
-      <AmountInput value={planned} onUpdate={onUpdate} />
+      {/* Right: amount input — always visible */}
+      {!nameEditing && <AmountInput value={planned} onUpdate={onUpdate} />}
     </div>
   )
 }
@@ -74,20 +150,48 @@ function SubcategoryBudgetRow({ subcategory, planned, onUpdate }) {
 // ── Category section: header shows read-only sum, rows show subcategory inputs ─
 
 function CategoryBudgetSection({ category, monthBudget, onUpdateCategory, onUpdateSubcategory }) {
+  const { updateCategory } = useApp()
+  const [nameEditing, setNameEditing] = useState(false)
   const hasSubcategories = category.subcategories.length > 0
 
+  const startNameEdit = () => setNameEditing(true)
+
+  const commitName = (trimmed) => {
+    if (trimmed && trimmed !== category.name) {
+      updateCategory(category.id, { name: trimmed, color: category.color })
+    }
+    setNameEditing(false)
+  }
+
   if (!hasSubcategories) {
-    // No subcategories — keep the original single-amount behaviour
+    // No subcategories — single-amount row
     return (
-      <div className="flex items-center justify-between py-2.5 border-b border-slate-100 last:border-0">
-        <div className="flex items-center gap-2.5">
+      <div className="flex items-center py-2.5 border-b border-slate-100 last:border-0 gap-2">
+        <div className="flex items-center gap-2.5 flex-1 min-w-0">
           <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: category.color }} />
-          <span className="text-sm text-slate-700">{category.name}</span>
+          {nameEditing ? (
+            <InlineNameInput
+              value={category.name}
+              onCommit={commitName}
+              onCancel={() => setNameEditing(false)}
+              className="font-medium"
+            />
+          ) : (
+            <span
+              className="text-sm text-slate-700 cursor-default select-none"
+              onDoubleClick={startNameEdit}
+              title="Double-click to rename"
+            >
+              {category.name}
+            </span>
+          )}
         </div>
-        <AmountInput
-          value={getCategoryPlanned(monthBudget, category.id)}
-          onUpdate={onUpdateCategory}
-        />
+        {!nameEditing && (
+          <AmountInput
+            value={getCategoryPlanned(monthBudget, category.id)}
+            onUpdate={onUpdateCategory}
+          />
+        )}
       </div>
     )
   }
@@ -96,24 +200,42 @@ function CategoryBudgetSection({ category, monthBudget, onUpdateCategory, onUpda
 
   return (
     <div className="border-b border-slate-100 last:border-0">
-      {/* Category header — read-only total */}
-      <div className="flex items-center justify-between py-2.5">
-        <div className="flex items-center gap-2.5">
+      {/* Category header — name (double-click to rename) + read-only total */}
+      <div className="flex items-center py-2.5 gap-2">
+        <div className="flex items-center gap-2.5 flex-1 min-w-0">
           <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: category.color }} />
-          <span className="text-sm font-medium text-slate-700">{category.name}</span>
+          {nameEditing ? (
+            <InlineNameInput
+              value={category.name}
+              onCommit={commitName}
+              onCancel={() => setNameEditing(false)}
+              className="font-medium"
+            />
+          ) : (
+            <span
+              className="text-sm font-medium text-slate-700 cursor-default select-none"
+              onDoubleClick={startNameEdit}
+              title="Double-click to rename"
+            >
+              {category.name}
+            </span>
+          )}
         </div>
-        <span className="w-32 text-right text-sm font-semibold text-slate-700 px-2.5">
-          {total > 0
-            ? formatCurrency(total)
-            : <span className="text-slate-300 font-normal italic">No budget</span>
-          }
-        </span>
+        {!nameEditing && (
+          <span className="w-32 flex-shrink-0 text-right text-sm font-semibold text-slate-700 px-2.5">
+            {total > 0
+              ? formatCurrency(total)
+              : <span className="text-slate-300 font-normal italic">No budget</span>
+            }
+          </span>
+        )}
       </div>
 
       {/* Subcategory rows */}
       {category.subcategories.map(sub => (
         <SubcategoryBudgetRow
           key={sub.id}
+          categoryId={category.id}
           subcategory={sub}
           planned={getSubcategoryPlanned(monthBudget, sub.id)}
           onUpdate={(amount) => onUpdateSubcategory(sub.id, amount)}
