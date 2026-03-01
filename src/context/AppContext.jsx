@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext'
 import { defaultCategories } from '../data/defaultCategories'
 import { getMonthKey } from '../utils/formatters'
 import { loadData, saveData } from '../utils/storage'
+import { getOccurrencesInMonth } from '../utils/recurringUtils'
 
 const AppContext = createContext(null)
 
@@ -31,6 +32,9 @@ function dbToTransaction(row) {
     type: row.type,
     merchant: row.merchant ?? '',
     notes: row.notes ?? '',
+    recurringRuleId: row.recurring_rule_id ?? null,
+    isPending: row.is_pending ?? false,
+    scheduledDate: row.scheduled_date ?? null,
   }
   if (row.is_split) {
     return {
@@ -48,6 +52,24 @@ function dbToTransaction(row) {
     ...base,
     categoryId: row.category_id,
     subcategoryId: row.subcategory_id ?? null,
+  }
+}
+
+function dbToRecurringRule(row) {
+  return {
+    id: row.id,
+    label: row.label ?? '',
+    amount: parseFloat(row.amount),
+    type: row.type,
+    frequency: row.frequency,
+    startDate: row.start_date,
+    endDate: row.end_date ?? null,
+    merchant: row.merchant ?? '',
+    notes: row.notes ?? '',
+    categoryId: row.category_id ?? null,
+    subcategoryId: row.subcategory_id ?? null,
+    isPaused: row.is_paused ?? false,
+    createdAt: row.created_at,
   }
 }
 
@@ -79,6 +101,7 @@ export function AppProvider({ children }) {
   const [categories, setCategories] = useState([])
   const [transactions, setTransactions] = useState([])
   const [budgets, setBudgets] = useState({})
+  const [recurringRules, setRecurringRules] = useState([])
   const [loading, setLoading] = useState(true)
 
   // ── Theme ─────────────────────────────────────────────────────────────────────
@@ -140,9 +163,79 @@ export function AppProvider({ children }) {
     return window.matchMedia('(prefers-color-scheme: dark)').matches
   })()
 
-  // Ref so updateTransaction can always read latest transactions without a stale closure
+  // Refs so callbacks can read latest state without stale closures
   const transactionsRef = useRef(transactions)
   useEffect(() => { transactionsRef.current = transactions }, [transactions])
+
+  const recurringRulesRef = useRef(recurringRules)
+  useEffect(() => { recurringRulesRef.current = recurringRules }, [recurringRules])
+
+  const currentMonthRef = useRef(currentMonth)
+  useEffect(() => { currentMonthRef.current = currentMonth }, [currentMonth])
+
+  // ── Recurring instance generation ────────────────────────────────────────────
+  // Generates pending transaction instances for a month from active recurring rules.
+  // txnsOverride / rulesOverride are used when calling right after loadAll() before
+  // refs are updated with the freshly fetched data.
+
+  const generateRecurringInstances = useCallback(async (monthKey, txnsOverride, rulesOverride) => {
+    if (!user) return
+    const rules = rulesOverride ?? recurringRulesRef.current
+    const currentTxns = txnsOverride ?? transactionsRef.current
+
+    const activeRules = rules.filter(r => !r.isPaused)
+    if (activeRules.length === 0) return
+
+    const toInsert = []
+    for (const rule of activeRules) {
+      const dates = getOccurrencesInMonth(rule, monthKey)
+      for (const date of dates) {
+        // Skip if an instance already exists for this rule + scheduled date
+        const exists = currentTxns.some(
+          t => t.recurringRuleId === rule.id && t.scheduledDate === date
+        )
+        if (!exists) {
+          toInsert.push({
+            user_id: user.id,
+            date,
+            scheduled_date: date,
+            amount: rule.amount,
+            type: rule.type,
+            merchant: rule.merchant || null,
+            notes: rule.notes || null,
+            is_split: false,
+            category_id: rule.categoryId || null,
+            subcategory_id: rule.subcategoryId || null,
+            recurring_rule_id: rule.id,
+            is_pending: true,
+          })
+        }
+      }
+    }
+
+    if (toInsert.length === 0) return
+
+    const { data: inserted, error } = await supabase
+      .from('transactions')
+      .insert(toInsert)
+      .select('*, transaction_splits(*)')
+
+    if (error) {
+      // 23505 = unique_violation — instances already exist (race condition safety net)
+      if (error.code !== '23505') {
+        console.error('Failed to generate recurring instances:', error)
+      }
+      return
+    }
+
+    if (inserted?.length) {
+      setTransactions(prev => {
+        const existingIds = new Set(prev.map(t => t.id))
+        const newOnes = inserted.filter(r => !existingIds.has(r.id)).map(dbToTransaction)
+        return newOnes.length > 0 ? [...newOnes, ...prev] : prev
+      })
+    }
+  }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Initial load ────────────────────────────────────────────────────────────
 
@@ -152,6 +245,7 @@ export function AppProvider({ children }) {
       setCategories([])
       setTransactions([])
       setBudgets({})
+      setRecurringRules([])
       setLoading(false)
       return
     }
@@ -212,17 +306,19 @@ export function AppProvider({ children }) {
         { data: subRows,  error: subErr  },
         { data: txRows,   error: txErr   },
         { data: planRows, error: planErr },
+        { data: ruleRows, error: ruleErr },
       ] = await Promise.all([
-        supabase.from('categories')     .select('*')                    .eq('user_id', user.id).order('sort_order'),
-        supabase.from('subcategories')  .select('*')                    .eq('user_id', user.id).order('sort_order'),
-        supabase.from('transactions')   .select('*, transaction_splits(*)').eq('user_id', user.id).order('date', { ascending: false }),
-        supabase.from('budget_plans')   .select('*')                    .eq('user_id', user.id),
+        supabase.from('categories')      .select('*')                     .eq('user_id', user.id).order('sort_order'),
+        supabase.from('subcategories')   .select('*')                     .eq('user_id', user.id).order('sort_order'),
+        supabase.from('transactions')    .select('*, transaction_splits(*)').eq('user_id', user.id).order('date', { ascending: false }),
+        supabase.from('budget_plans')    .select('*')                     .eq('user_id', user.id),
+        supabase.from('recurring_rules') .select('*')                     .eq('user_id', user.id).order('created_at'),
       ])
 
-      if (catErr || subErr || txErr || planErr) {
+      if (catErr || subErr || txErr || planErr || ruleErr) {
         // RLS "permission denied" shows up here as an error (not empty data).
         // Empty data with no error = RLS silently filtering — check Supabase policies.
-        console.error('loadAll — query errors:', { catErr, subErr, txErr, planErr })
+        console.error('loadAll — query errors:', { catErr, subErr, txErr, planErr, ruleErr })
         setLoading(false)
         return
       }
@@ -231,6 +327,7 @@ export function AppProvider({ children }) {
         subcategories: subRows.length,
         transactions: txRows.length,
         budgetPlans: planRows.length,
+        recurringRules: (ruleRows ?? []).length,
       })
 
       const isNewAccount = catRows.length === 0
@@ -241,10 +338,18 @@ export function AppProvider({ children }) {
       // New accounts get light mode by default; existing accounts keep their stored preference
       if (isNewAccount) setTheme('light')
 
+      const mappedTxns = (txRows ?? []).map(dbToTransaction)
+      const mappedRules = (ruleRows ?? []).map(dbToRecurringRule)
+
       setCategories(cats)
-      setTransactions((txRows ?? []).map(dbToTransaction))
+      setTransactions(mappedTxns)
       setBudgets(dbToBudgets(planRows ?? []))
+      setRecurringRules(mappedRules)
       setLoading(false)
+
+      // Generate pending instances for the currently viewed month.
+      // Pass mapped data directly since refs haven't been updated yet.
+      await generateRecurringInstances(currentMonthRef.current, mappedTxns, mappedRules)
     }
 
     loadAll()
@@ -255,7 +360,9 @@ export function AppProvider({ children }) {
   const setCurrentMonth = useCallback((monthKey) => {
     setCurrentMonthState(monthKey)
     saveData('currentMonth', monthKey)
-  }, [])
+    // Generate pending instances for the newly selected month (uses refs for current state)
+    generateRecurringInstances(monthKey)
+  }, [generateRecurringInstances])
 
   // ── Transactions ─────────────────────────────────────────────────────────────
 
@@ -274,6 +381,9 @@ export function AppProvider({ children }) {
         is_split: isSplit,
         category_id: isSplit ? null : transaction.categoryId,
         subcategory_id: isSplit ? null : (transaction.subcategoryId || null),
+        recurring_rule_id: transaction.recurringRuleId ?? null,
+        is_pending: transaction.isPending ?? false,
+        scheduled_date: transaction.scheduledDate ?? null,
       })
       .select()
       .single()
@@ -307,18 +417,27 @@ export function AppProvider({ children }) {
 
     const isSplit = updates.categoryId === null && Array.isArray(updates.splits)
 
+    const updateFields = {
+      date: updates.date,
+      amount: updates.amount,
+      type: updates.type,
+      merchant: updates.merchant || null,
+      notes: updates.notes || null,
+      is_split: isSplit,
+      category_id: isSplit ? null : updates.categoryId,
+      subcategory_id: isSplit ? null : (updates.subcategoryId || null),
+    }
+    // Only include recurring fields if explicitly provided in updates
+    if ('recurringRuleId' in updates) {
+      updateFields.recurring_rule_id = updates.recurringRuleId ?? null
+    }
+    if ('isPending' in updates) {
+      updateFields.is_pending = updates.isPending
+    }
+
     const { error: txErr } = await supabase
       .from('transactions')
-      .update({
-        date: updates.date,
-        amount: updates.amount,
-        type: updates.type,
-        merchant: updates.merchant || null,
-        notes: updates.notes || null,
-        is_split: isSplit,
-        category_id: isSplit ? null : updates.categoryId,
-        subcategory_id: isSplit ? null : (updates.subcategoryId || null),
-      })
+      .update(updateFields)
       .eq('id', id)
       .eq('user_id', user.id) // defense-in-depth: RLS enforces this server-side too
 
@@ -356,6 +475,9 @@ export function AppProvider({ children }) {
       category_id: isSplit ? null : updates.categoryId,
       subcategory_id: isSplit ? null : (updates.subcategoryId || null),
       transaction_splits: newSplitRows,
+      recurring_rule_id: 'recurringRuleId' in updates ? (updates.recurringRuleId ?? null) : (existing.recurringRuleId ?? null),
+      is_pending: 'isPending' in updates ? updates.isPending : (existing.isPending ?? false),
+      scheduled_date: existing.scheduledDate ?? null,
     })
 
     setTransactions(prev => prev.map(t => t.id === id ? updatedTransaction : t))
@@ -367,6 +489,102 @@ export function AppProvider({ children }) {
       .eq('id', id).eq('user_id', user.id) // defense-in-depth: RLS enforces this server-side too
     if (error) { console.error('Failed to delete transaction:', error); return }
     setTransactions(prev => prev.filter(t => t.id !== id))
+  }, [user])
+
+  const confirmTransaction = useCallback(async (id) => {
+    const { error } = await supabase
+      .from('transactions')
+      .update({ is_pending: false })
+      .eq('id', id)
+      .eq('user_id', user.id)
+    if (error) { console.error('Failed to confirm transaction:', error); return }
+    setTransactions(prev => prev.map(t => t.id === id ? { ...t, isPending: false } : t))
+  }, [user])
+
+  // ── Recurring Rules ───────────────────────────────────────────────────────────
+
+  const addRecurringRule = useCallback(async (ruleData) => {
+    const { data: row, error } = await supabase
+      .from('recurring_rules')
+      .insert({
+        user_id: user.id,
+        label: ruleData.label,
+        amount: ruleData.amount,
+        type: ruleData.type,
+        frequency: ruleData.frequency,
+        start_date: ruleData.startDate,
+        end_date: ruleData.endDate || null,
+        merchant: ruleData.merchant || null,
+        notes: ruleData.notes || null,
+        category_id: ruleData.categoryId || null,
+        subcategory_id: ruleData.subcategoryId || null,
+        is_paused: false,
+      })
+      .select()
+      .single()
+
+    if (error) { console.error('Failed to add recurring rule:', error); return null }
+    const newRule = dbToRecurringRule(row)
+    setRecurringRules(prev => [...prev, newRule])
+    return newRule
+  }, [user])
+
+  const updateRecurringRule = useCallback(async (id, updates) => {
+    const { data: row, error } = await supabase
+      .from('recurring_rules')
+      .update({
+        label: updates.label,
+        amount: updates.amount,
+        type: updates.type,
+        frequency: updates.frequency,
+        start_date: updates.startDate,
+        end_date: updates.endDate || null,
+        merchant: updates.merchant || null,
+        notes: updates.notes || null,
+        category_id: updates.categoryId || null,
+        subcategory_id: updates.subcategoryId || null,
+      })
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .select()
+      .single()
+
+    if (error) { console.error('Failed to update recurring rule:', error); return null }
+    const updatedRule = dbToRecurringRule(row)
+    setRecurringRules(prev => prev.map(r => r.id === id ? updatedRule : r))
+    return updatedRule
+  }, [user])
+
+  const pauseRecurringRule = useCallback(async (id, isPaused) => {
+    const { error } = await supabase
+      .from('recurring_rules')
+      .update({ is_paused: isPaused })
+      .eq('id', id)
+      .eq('user_id', user.id)
+    if (error) { console.error('Failed to pause/resume recurring rule:', error); return }
+    setRecurringRules(prev => prev.map(r => r.id === id ? { ...r, isPaused } : r))
+  }, [user])
+
+  const deleteRecurringRule = useCallback(async (id) => {
+    // Delete pending instances for this rule (confirmed instances stay, auto-detach via ON DELETE SET NULL)
+    await supabase.from('transactions')
+      .delete()
+      .eq('recurring_rule_id', id)
+      .eq('is_pending', true)
+      .eq('user_id', user.id)
+
+    const { error } = await supabase.from('recurring_rules').delete()
+      .eq('id', id).eq('user_id', user.id)
+
+    if (error) { console.error('Failed to delete recurring rule:', error); return }
+
+    // Remove pending instances from local state; detach confirmed instances
+    setTransactions(prev =>
+      prev
+        .filter(t => !(t.recurringRuleId === id && t.isPending))
+        .map(t => t.recurringRuleId === id ? { ...t, recurringRuleId: null } : t)
+    )
+    setRecurringRules(prev => prev.filter(r => r.id !== id))
   }, [user])
 
   // ── Budgets ───────────────────────────────────────────────────────────────────
@@ -602,10 +820,12 @@ export function AppProvider({ children }) {
     await Promise.all([
       supabase.from('transactions').delete().eq('user_id', user.id),
       supabase.from('categories').delete().eq('user_id', user.id),
+      supabase.from('recurring_rules').delete().eq('user_id', user.id),
     ])
     setCategories([])
     setTransactions([])
     setBudgets({})
+    setRecurringRules([])
   }, [user])
 
   // ── Import all data (for Settings restore) ────────────────────────────────────
@@ -716,9 +936,16 @@ export function AppProvider({ children }) {
     theme,
     setTheme,
     isDark,
+    recurringRules,
     addTransaction,
     updateTransaction,
     deleteTransaction,
+    confirmTransaction,
+    addRecurringRule,
+    updateRecurringRule,
+    pauseRecurringRule,
+    deleteRecurringRule,
+    generateRecurringInstances,
     setBudgetAmount,
     getMonthBudget,
     addCategory,
@@ -740,7 +967,9 @@ export function AppProvider({ children }) {
     categories, transactions, currentMonthTransactions,
     budgets, currentMonthBudget, loading,
     theme, setTheme, isDark,
-    addTransaction, updateTransaction, deleteTransaction,
+    recurringRules,
+    addTransaction, updateTransaction, deleteTransaction, confirmTransaction,
+    addRecurringRule, updateRecurringRule, pauseRecurringRule, deleteRecurringRule, generateRecurringInstances,
     setBudgetAmount, getMonthBudget,
     resetMonthBudget, setSubcategoryBudgetAmount, copyBudget, moveSubcategory,
     addCategory, updateCategory, deleteCategory,

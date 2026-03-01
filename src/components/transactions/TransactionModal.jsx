@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { flushSync } from 'react-dom'
-import { X, ChevronDown, Check, Search } from 'lucide-react'
+import { X, ChevronDown, Check, Search, RefreshCw } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { getTodayString } from '../../utils/formatters'
+import { FREQUENCY_LABELS } from '../../utils/recurringUtils'
 import {
   getSubcategoryPlanned,
   getSubcategorySpent,
@@ -21,12 +22,22 @@ const emptyForm = () => ({
   splits: [],
 })
 
+const emptyRecurring = () => ({
+  label: '',
+  frequency: 'monthly',
+  startDate: '',
+  endDate: '',
+})
+
 export default function TransactionModal({ isOpen, onClose, editingTransaction = null }) {
   const {
     categories,
     transactions,
+    recurringRules,
     addTransaction,
     updateTransaction,
+    addRecurringRule,
+    updateRecurringRule,
     currentMonthTransactions,
     currentMonthBudget,
     currentMonth,
@@ -37,6 +48,11 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerSearch, setPickerSearch] = useState('')
   const [merchantFocused, setMerchantFocused] = useState(false)
+
+  // Recurring state
+  const [isRecurring, setIsRecurring] = useState(false)
+  const [recurringForm, setRecurringForm] = useState(emptyRecurring)
+  const [recurringErrors, setRecurringErrors] = useState({})
 
   // Ref for the scrollable picker panel - used to preserve scroll position
   const pickerScrollRef = useRef(null)
@@ -95,16 +111,35 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
           }],
         })
       }
+
+      // Pre-fill recurring section if this transaction is linked to a rule
+      const ruleId = editingTransaction.recurringRuleId
+      const rule = ruleId ? recurringRules.find(r => r.id === ruleId) : null
+      if (rule) {
+        setIsRecurring(true)
+        setRecurringForm({
+          label: rule.label,
+          frequency: rule.frequency,
+          startDate: rule.startDate,
+          endDate: rule.endDate ?? '',
+        })
+      } else {
+        setIsRecurring(false)
+        setRecurringForm(emptyRecurring())
+      }
     } else {
       // Default date to today if it falls within the viewed month; otherwise use the 1st of that month.
       const todayStr = getTodayString()
       const defaultDate = todayStr.startsWith(currentMonth) ? todayStr : `${currentMonth}-01`
       setForm({ ...emptyForm(), date: defaultDate })
+      setIsRecurring(false)
+      setRecurringForm(emptyRecurring())
     }
     setErrors({})
+    setRecurringErrors({})
     setPickerOpen(false)
     setPickerSearch('')
-  }, [isOpen, editingTransaction])
+  }, [isOpen, editingTransaction]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Derive the locked type from the first split that has a category selected
   const lockedType = (() => {
@@ -114,6 +149,9 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
     }
     return null
   })()
+
+  // Recurring toggle is only available for simple (non-split) transactions
+  const canBeRecurring = form.splits.length <= 1
 
   // Base transactions excluding the editing transaction (for accurate "remaining budget" display)
   const baseTransactions = editingTransaction
@@ -267,10 +305,25 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
     return errs
   }
 
-  const handleSubmit = (e) => {
+  const validateRecurring = () => {
+    const errs = {}
+    if (!recurringForm.label.trim()) errs.label = 'Label is required'
+    if (!recurringForm.startDate) errs.startDate = 'Start date is required'
+    if (recurringForm.endDate && recurringForm.endDate < recurringForm.startDate) {
+      errs.endDate = 'End date must be after start date'
+    }
+    return errs
+  }
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
     const errs = validate()
-    if (Object.keys(errs).length > 0) { setErrors(errs); return }
+    const recErrs = isRecurring && canBeRecurring ? validateRecurring() : {}
+    if (Object.keys(errs).length > 0 || Object.keys(recErrs).length > 0) {
+      setErrors(errs)
+      setRecurringErrors(recErrs)
+      return
+    }
 
     const totalAmt = parseFloat(form.amount)
     const type = lockedType ?? 'expense'
@@ -306,10 +359,44 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
       }
     }
 
+    // Handle recurring rule create / update / detach
+    if (isRecurring && canBeRecurring) {
+      const singleSplit = form.splits[0]
+      const cat = categories.find(c => c.id === singleSplit?.categoryId)
+      const ruleData = {
+        label: recurringForm.label.trim(),
+        frequency: recurringForm.frequency,
+        startDate: recurringForm.startDate || form.date,
+        endDate: recurringForm.endDate || null,
+        amount: totalAmt,
+        type: cat?.type ?? type,
+        merchant: form.merchant.trim() || null,
+        notes: form.notes.trim() || null,
+        categoryId: singleSplit?.categoryId || null,
+        subcategoryId: singleSplit?.subcategoryId || null,
+      }
+
+      const existingRuleId = editingTransaction?.recurringRuleId
+      if (existingRuleId) {
+        // Update the existing rule
+        await updateRecurringRule(existingRuleId, ruleData)
+        payload.recurringRuleId = existingRuleId
+      } else {
+        // Create a new rule and link this transaction to it
+        const newRule = await addRecurringRule(ruleData)
+        payload.recurringRuleId = newRule?.id ?? null
+        payload.scheduledDate = form.date
+        payload.isPending = false
+      }
+    } else if (!isRecurring && editingTransaction?.recurringRuleId) {
+      // User turned off recurring — detach this instance from the rule
+      payload.recurringRuleId = null
+    }
+
     if (editingTransaction) {
-      updateTransaction(editingTransaction.id, payload)
+      await updateTransaction(editingTransaction.id, payload)
     } else {
-      addTransaction(payload)
+      await addTransaction(payload)
     }
     onClose()
   }
@@ -673,6 +760,122 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
 
             {errors.splits && <p className="text-xs text-red-500 mt-1.5">{errors.splits}</p>}
           </div>
+
+          {/* Recurring toggle — only for single-category transactions */}
+          {canBeRecurring && (
+            <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+              {/* Toggle row */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRecurring(v => !v)
+                  setRecurringErrors({})
+                  if (!isRecurring && !recurringForm.startDate) {
+                    setRecurringForm(prev => ({ ...prev, startDate: form.date || getTodayString() }))
+                  }
+                }}
+                className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <RefreshCw size={15} className={isRecurring ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'} />
+                  <span className={`text-sm font-medium ${isRecurring ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}>
+                    Make this recurring
+                  </span>
+                </div>
+                {/* Toggle pill */}
+                <span className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors ${
+                  isRecurring ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'
+                }`}>
+                  <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                    isRecurring ? 'translate-x-4' : 'translate-x-0'
+                  }`} />
+                </span>
+              </button>
+
+              {/* Recurring options — shown when toggle is on */}
+              {isRecurring && (
+                <div className="px-4 py-3 space-y-3 border-t border-slate-200 dark:border-slate-700">
+                  {/* Label */}
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
+                      Rule Label <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder='e.g. Netflix, Rent, Salary...'
+                      value={recurringForm.label}
+                      onChange={e => {
+                        setRecurringForm(prev => ({ ...prev, label: e.target.value }))
+                        if (recurringErrors.label) setRecurringErrors(prev => ({ ...prev, label: null }))
+                      }}
+                      className={`w-full px-3 py-2 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 transition-colors bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 ${
+                        recurringErrors.label ? 'border-red-300' : 'border-slate-200 dark:border-slate-600 focus:border-indigo-400'
+                      }`}
+                    />
+                    {recurringErrors.label && <p className="text-xs text-red-500 mt-1">{recurringErrors.label}</p>}
+                  </div>
+
+                  {/* Frequency */}
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Frequency</label>
+                    <select
+                      value={recurringForm.frequency}
+                      onChange={e => setRecurringForm(prev => ({ ...prev, frequency: e.target.value }))}
+                      className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-colors bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                    >
+                      {Object.entries(FREQUENCY_LABELS).map(([val, label]) => (
+                        <option key={val} value={val}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Start date + End date */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
+                        Start Date <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={recurringForm.startDate}
+                        onChange={e => {
+                          setRecurringForm(prev => ({ ...prev, startDate: e.target.value }))
+                          if (recurringErrors.startDate) setRecurringErrors(prev => ({ ...prev, startDate: null }))
+                        }}
+                        className={`w-full px-3 py-2 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 transition-colors bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 ${
+                          recurringErrors.startDate ? 'border-red-300' : 'border-slate-200 dark:border-slate-600 focus:border-indigo-400'
+                        }`}
+                      />
+                      {recurringErrors.startDate && <p className="text-xs text-red-500 mt-1">{recurringErrors.startDate}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
+                        End Date <span className="text-slate-400">(optional)</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={recurringForm.endDate}
+                        onChange={e => {
+                          setRecurringForm(prev => ({ ...prev, endDate: e.target.value }))
+                          if (recurringErrors.endDate) setRecurringErrors(prev => ({ ...prev, endDate: null }))
+                        }}
+                        className={`w-full px-3 py-2 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 transition-colors bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 ${
+                          recurringErrors.endDate ? 'border-red-300' : 'border-slate-200 dark:border-slate-600 focus:border-indigo-400'
+                        }`}
+                      />
+                      {recurringErrors.endDate && <p className="text-xs text-red-500 mt-1">{recurringErrors.endDate}</p>}
+                    </div>
+                  </div>
+
+                  {editingTransaction?.recurringRuleId && (
+                    <p className="text-xs text-slate-400 dark:text-slate-500">
+                      Rule changes apply to future auto-generated instances. This instance is saved independently.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-3 pt-1">

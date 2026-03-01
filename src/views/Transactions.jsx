@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, CheckCircle, RefreshCw } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { formatCurrency, formatDate } from '../utils/formatters'
 import TransactionModal from '../components/transactions/TransactionModal'
 
 export default function Transactions() {
-  const { currentMonthTransactions, categories, deleteTransaction } = useApp()
+  const { currentMonthTransactions, categories, deleteTransaction, confirmTransaction } = useApp()
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState(null)
@@ -46,6 +46,10 @@ export default function Transactions() {
     }
   }
 
+  const handleConfirm = (id) => {
+    confirmTransaction(id)
+  }
+
   return (
     <div className="space-y-4 max-w-3xl pb-24">
       {/* Toolbar */}
@@ -76,7 +80,7 @@ export default function Transactions() {
               // Split transaction — main row + sub-rows
               const firstSplitColor = getSplitCategoryColor(t.splits[0])
               return (
-                <div key={t.id}>
+                <div key={t.id} className={t.isPending ? 'bg-amber-50/60 dark:bg-amber-900/10' : ''}>
                   {/* Main row */}
                   <div className="flex items-center gap-3.5 px-5 py-3.5 group hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                     <div
@@ -84,13 +88,21 @@ export default function Transactions() {
                       style={{ backgroundColor: firstSplitColor }}
                     />
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
                           {t.merchant || 'Split Transaction'}
                         </p>
                         <span className="flex-shrink-0 text-xs font-medium bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 px-2 py-0.5 rounded-full">
                           Split
                         </span>
+                        {t.isPending && (
+                          <span className="flex-shrink-0 text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                            Pending
+                          </span>
+                        )}
+                        {t.recurringRuleId && !t.isPending && (
+                          <RefreshCw size={11} className="flex-shrink-0 text-slate-400" />
+                        )}
                       </div>
                       <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                         {formatDate(t.date)}
@@ -102,7 +114,16 @@ export default function Transactions() {
                     }`}>
                       {t.type === 'income' ? '+' : '−'}{formatCurrency(t.amount)}
                     </span>
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                    <div className={`flex items-center gap-0.5 flex-shrink-0 ${t.isPending ? '' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+                      {t.isPending && (
+                        <button
+                          onClick={() => handleConfirm(t.id)}
+                          title="Mark as confirmed"
+                          className="p-1.5 rounded-lg text-amber-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+                        >
+                          <CheckCircle size={14} />
+                        </button>
+                      )}
                       <button
                         onClick={() => openEdit(t)}
                         title="Edit"
@@ -152,22 +173,34 @@ export default function Transactions() {
               )
             }
 
-            // Regular (flat) transaction — unchanged rendering
+            // Regular (flat) transaction
             const subName = getSubcategoryName(t.categoryId, t.subcategoryId)
             const color = getCategoryColor(t.categoryId)
             return (
               <div
                 key={t.id}
-                className="flex items-center gap-3.5 px-5 py-3.5 group hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                className={`flex items-center gap-3.5 px-5 py-3.5 group hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${
+                  t.isPending ? 'bg-amber-50/60 dark:bg-amber-900/10' : ''
+                }`}
               >
                 <div
                   className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: color }}
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
-                    {t.merchant || getCategoryName(t.categoryId)}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
+                      {t.merchant || getCategoryName(t.categoryId)}
+                    </p>
+                    {t.isPending && (
+                      <span className="flex-shrink-0 text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                        Pending
+                      </span>
+                    )}
+                    {t.recurringRuleId && !t.isPending && (
+                      <RefreshCw size={11} className="flex-shrink-0 text-slate-400" />
+                    )}
+                  </div>
                   <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">
                     {getCategoryName(t.categoryId)}
                     {subName && <> · {subName}</>}
@@ -181,7 +214,16 @@ export default function Transactions() {
                 }`}>
                   {t.type === 'income' ? '+' : '−'}{formatCurrency(t.amount)}
                 </span>
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                <div className={`flex items-center gap-0.5 flex-shrink-0 ${t.isPending ? '' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+                  {t.isPending && (
+                    <button
+                      onClick={() => handleConfirm(t.id)}
+                      title="Mark as confirmed"
+                      className="p-1.5 rounded-lg text-amber-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+                    >
+                      <CheckCircle size={14} />
+                    </button>
+                  )}
                   <button
                     onClick={() => openEdit(t)}
                     title="Edit"
