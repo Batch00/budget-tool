@@ -552,6 +552,36 @@ export function AppProvider({ children }) {
     if (error) { console.error('Failed to update recurring rule:', error); return null }
     const updatedRule = dbToRecurringRule(row)
     setRecurringRules(prev => prev.map(r => r.id === id ? updatedRule : r))
+
+    // Propagate field changes to all pending (unconfirmed) instances for this rule.
+    // Confirmed instances are historical records and should not be modified.
+    await supabase
+      .from('transactions')
+      .update({
+        amount: updates.amount,
+        type: updates.type,
+        merchant: updates.merchant || null,
+        notes: updates.notes || null,
+        category_id: updates.categoryId || null,
+        subcategory_id: updates.subcategoryId || null,
+      })
+      .eq('recurring_rule_id', id)
+      .eq('is_pending', true)
+      .eq('user_id', user.id)
+
+    setTransactions(prev => prev.map(t => {
+      if (t.recurringRuleId !== id || !t.isPending) return t
+      return {
+        ...t,
+        amount: updates.amount,
+        type: updates.type,
+        merchant: updates.merchant || null,
+        notes: updates.notes || null,
+        categoryId: updates.categoryId || null,
+        subcategoryId: updates.subcategoryId || null,
+      }
+    }))
+
     return updatedRule
   }, [user])
 

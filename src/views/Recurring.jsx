@@ -352,9 +352,15 @@ export default function Recurring() {
   }
 
   const sortedRules = [...recurringRules].sort((a, b) => {
-    // Active rules first, then paused; within each group sort by label
+    // Paused rules always go to the bottom
     if (a.isPaused !== b.isPaused) return a.isPaused ? 1 : -1
-    return a.label.localeCompare(b.label)
+    // Within active rules sort by next occurrence date ascending (most imminent first)
+    const aNext = getNextOccurrence(a)
+    const bNext = getNextOccurrence(b)
+    if (!aNext && !bNext) return a.label.localeCompare(b.label)
+    if (!aNext) return 1
+    if (!bNext) return -1
+    return aNext.localeCompare(bNext)
   })
 
   return (

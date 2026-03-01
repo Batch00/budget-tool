@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, ChevronRight, TrendingUp, TrendingDown, Wallet, Target, Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, TrendingUp, TrendingDown, Wallet, Target, Plus, Clock } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { formatCurrency, formatDate, formatMonthLabel } from '../utils/formatters'
 import {
@@ -31,20 +31,24 @@ function SummaryCard({ icon: Icon, label, amount, subtitle, colorClass }) {
   )
 }
 
-function CategoryCard({ category, transactions, monthBudget }) {
+// confirmedTransactions — only confirmed (is_pending=false) transactions
+// pendingTransactions  — only pending (is_pending=true) transactions
+function CategoryCard({ category, confirmedTransactions, pendingTransactions, monthBudget }) {
   const categoryType = category.type
   const [expanded, setExpanded] = useState(false)
 
-  const spent = getCategorySpent(transactions, category.id)
+  const spent   = getCategorySpent(confirmedTransactions, category.id)
+  const pending = getCategorySpent(pendingTransactions,   category.id)
   const planned = getCategoryEffectivePlanned(category, monthBudget)
 
   const hasSubcategories = category.subcategories.length > 0
 
-  // Only show subcategories that have planned or actual spending
+  // Show subcategories that have planned, confirmed spending, or pending spending
   const visibleSubcategories = category.subcategories.filter(sub => {
-    const subSpent = getSubcategorySpent(transactions, sub.id)
-    const subPlanned = getSubcategoryPlanned(monthBudget, sub.id)
-    return subSpent > 0 || subPlanned > 0
+    const subSpent    = getSubcategorySpent(confirmedTransactions, sub.id)
+    const subPending  = getSubcategorySpent(pendingTransactions,   sub.id)
+    const subPlanned  = getSubcategoryPlanned(monthBudget, sub.id)
+    return subSpent > 0 || subPlanned > 0 || subPending > 0.01
   })
 
   return (
@@ -60,10 +64,7 @@ function CategoryCard({ category, transactions, monthBudget }) {
             <h3 className="text-sm font-medium text-slate-800 dark:text-slate-100">{category.name}</h3>
             {hasSubcategories && (
               <span className="text-slate-400">
-                {expanded
-                  ? <ChevronDown size={13} />
-                  : <ChevronRight size={13} />
-                }
+                {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
               </span>
             )}
           </button>
@@ -72,14 +73,15 @@ function CategoryCard({ category, transactions, monthBudget }) {
             <span className="text-xs text-slate-400 dark:text-slate-500 ml-1">/ {formatCurrency(planned)}</span>
           </div>
         </div>
-        <ProgressBar spent={spent} planned={planned} type={categoryType} />
+        <ProgressBar spent={spent} planned={planned} type={categoryType} pending={pending} />
       </div>
 
       {/* Subcategory breakdown (expanded) */}
       {expanded && visibleSubcategories.length > 0 && (
         <div className="border-t border-slate-100 dark:border-slate-700 px-5 py-3 space-y-3">
           {visibleSubcategories.map(sub => {
-            const subSpent = getSubcategorySpent(transactions, sub.id)
+            const subSpent   = getSubcategorySpent(confirmedTransactions, sub.id)
+            const subPending = getSubcategorySpent(pendingTransactions,   sub.id)
             const subPlanned = getSubcategoryPlanned(monthBudget, sub.id)
             return (
               <div key={sub.id}>
@@ -93,7 +95,7 @@ function CategoryCard({ category, transactions, monthBudget }) {
                     <span className="text-slate-400 dark:text-slate-500 ml-1">/ {formatCurrency(subPlanned)}</span>
                   </span>
                 </div>
-                <ProgressBar spent={subSpent} planned={subPlanned} type={categoryType} />
+                <ProgressBar spent={subSpent} planned={subPlanned} type={categoryType} pending={subPending} />
               </div>
             )
           })}
@@ -116,7 +118,17 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const [modalOpen, setModalOpen] = useState(false)
 
-  // Empty-state detection — same logic as Budget page
+  // Split into confirmed (historical) and pending (auto-generated, not yet paid)
+  const confirmedTransactions = useMemo(
+    () => currentMonthTransactions.filter(t => !t.isPending),
+    [currentMonthTransactions]
+  )
+  const pendingTransactions = useMemo(
+    () => currentMonthTransactions.filter(t => t.isPending),
+    [currentMonthTransactions]
+  )
+
+  // Empty-state detection — considers ALL transactions (pending counts as activity)
   const monthHasBudget =
     Object.values(budgets[currentMonth]?.planned ?? {}).some(v => v > 0) ||
     Object.values(budgets[currentMonth]?.subcategoryPlanned ?? {}).some(v => v > 0)
@@ -134,19 +146,27 @@ export default function Dashboard() {
     return { prevMonth: prev, nextMonth: next }
   }, [budgets, currentMonth])
 
-  const actualIncome = getTotalByType(currentMonthTransactions, 'income')
-  const actualExpenses = getTotalByType(currentMonthTransactions, 'expense')
-  const plannedIncome = getTotalPlannedByType(categories, currentMonthBudget, 'income')
+  // All actuals use confirmed transactions only — pending does not count as spent
+  const actualIncome    = getTotalByType(confirmedTransactions, 'income')
+  const actualExpenses  = getTotalByType(confirmedTransactions, 'expense')
+  const plannedIncome   = getTotalPlannedByType(categories, currentMonthBudget, 'income')
   const plannedExpenses = getTotalPlannedByType(categories, currentMonthBudget, 'expense')
-  const unbudgeted = getUnbudgetedAmount(categories, currentMonthBudget)
+  const unbudgeted      = getUnbudgetedAmount(categories, currentMonthBudget)
 
-  const incomeCategories = categories.filter(c => c.type === 'income')
+  const incomeCategories  = categories.filter(c => c.type === 'income')
   const expenseCategories = categories.filter(c => c.type === 'expense')
 
-  // Last 5 transactions for the recent activity panel
-  const recentTransactions = [...currentMonthTransactions]
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 5)
+  // Recent confirmed transactions (last 5), sorted newest first
+  const recentConfirmed = useMemo(
+    () => [...confirmedTransactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5),
+    [confirmedTransactions]
+  )
+
+  // Pending transactions for this month sorted by date ascending (upcoming first)
+  const upcomingPending = useMemo(
+    () => [...pendingTransactions].sort((a, b) => a.date.localeCompare(b.date)),
+    [pendingTransactions]
+  )
 
   // Show the friendly empty state when no budget and no transactions exist for this month
   if (isUninitialized) {
@@ -173,7 +193,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 pb-24">
-      {/* Summary strip */}
+      {/* Summary strip — confirmed actuals only */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
           icon={TrendingUp}
@@ -235,7 +255,8 @@ export default function Dashboard() {
               <CategoryCard
                 key={cat.id}
                 category={cat}
-                transactions={currentMonthTransactions}
+                confirmedTransactions={confirmedTransactions}
+                pendingTransactions={pendingTransactions}
                 monthBudget={currentMonthBudget}
               />
             ))}
@@ -252,7 +273,8 @@ export default function Dashboard() {
               <CategoryCard
                 key={cat.id}
                 category={cat}
-                transactions={currentMonthTransactions}
+                confirmedTransactions={confirmedTransactions}
+                pendingTransactions={pendingTransactions}
                 monthBudget={currentMonthBudget}
               />
             ))}
@@ -275,13 +297,15 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
-        {recentTransactions.length === 0 ? (
+
+        {recentConfirmed.length === 0 && upcomingPending.length === 0 ? (
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 text-center">
             <p className="text-slate-400 dark:text-slate-500 text-sm">No transactions yet this month.</p>
           </div>
         ) : (
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700">
-            {recentTransactions.map(t => {
+            {/* Confirmed recent transactions */}
+            {recentConfirmed.map(t => {
               const isIncome = t.type === 'income'
               let label, color
               if (t.splits) {
@@ -306,6 +330,39 @@ export default function Dashboard() {
                 </div>
               )
             })}
+
+            {/* Pending recurring transactions — shown as a distinct sub-section */}
+            {upcomingPending.length > 0 && (
+              <>
+                <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-900/10">
+                  <Clock size={11} className="text-amber-500 dark:text-amber-400 flex-shrink-0" />
+                  <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">
+                    Pending
+                  </span>
+                  <span className="text-xs text-amber-600 dark:text-amber-500">
+                    {upcomingPending.length} recurring transaction{upcomingPending.length !== 1 ? 's' : ''} not yet confirmed
+                  </span>
+                </div>
+                {upcomingPending.map(t => {
+                  const isIncome = t.type === 'income'
+                  const cat = categories.find(c => c.id === t.categoryId)
+                  const label = t.merchant || cat?.name || 'Recurring'
+                  const color = cat?.color ?? '#94a3b8'
+                  return (
+                    <div key={t.id} className="flex items-center gap-3 px-4 py-3 bg-amber-50/40 dark:bg-amber-900/5">
+                      <div className="w-2 h-2 rounded-full flex-shrink-0 opacity-60" style={{ backgroundColor: color }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-slate-500 dark:text-slate-400 truncate italic">{label}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500">{formatDate(t.date)}</p>
+                      </div>
+                      <span className={`text-sm font-medium flex-shrink-0 tabular-nums italic ${isIncome ? 'text-emerald-500 opacity-70' : 'text-slate-400 dark:text-slate-500'}`}>
+                        {isIncome ? '+' : '−'}{formatCurrency(t.amount)}
+                      </span>
+                    </div>
+                  )
+                })}
+              </>
+            )}
           </div>
         )}
       </section>
