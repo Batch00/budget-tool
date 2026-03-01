@@ -6,7 +6,7 @@ function Illustration() {
   return (
     <div className="relative w-28 h-28 mx-auto mb-8">
       <div className="absolute inset-0 bg-indigo-100 rounded-2xl rotate-6" />
-      <div className="absolute inset-0 bg-white rounded-2xl shadow-md border border-slate-100 flex items-center justify-center">
+      <div className="absolute inset-0 bg-white dark:bg-slate-800 rounded-2xl shadow-md border border-slate-100 dark:border-slate-700 flex items-center justify-center">
         <CalendarDays size={44} className="text-indigo-500" strokeWidth={1.5} />
       </div>
       <div className="absolute -top-2 -right-2 w-5 h-5 bg-emerald-400 rounded-full shadow-sm" />
@@ -38,7 +38,7 @@ export default function BudgetEmptyState({ currentMonth, prevMonth, nextMonth, o
         <Illustration />
 
         {/* Heading */}
-        <h2 className="text-xl font-bold text-slate-800 leading-snug">
+        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 leading-snug">
           Looks like you need a budget
           <br />
           <span className="text-indigo-600">for {currentLabel}</span>
@@ -47,9 +47,9 @@ export default function BudgetEmptyState({ currentMonth, prevMonth, nextMonth, o
         {/* ── No neighbors: scratch-only ───────────────────────────────────── */}
         {noNeighbors && (
           <>
-            <p className="mt-3 text-sm text-slate-500 leading-relaxed">
+            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
               Set up your budget for{' '}
-              <span className="font-medium text-slate-700">{currentLabel}</span>.
+              <span className="font-medium text-slate-700 dark:text-slate-300">{currentLabel}</span>.
               You can adjust planned amounts at any time.
             </p>
             <button
@@ -65,9 +65,9 @@ export default function BudgetEmptyState({ currentMonth, prevMonth, nextMonth, o
         {/* ── One neighbor: single copy option ─────────────────────────────── */}
         {oneNeighbor && (
           <>
-            <p className="mt-3 text-sm text-slate-500 leading-relaxed">
+            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
               We'll copy your{' '}
-              <span className="font-medium text-slate-700">{sourceLabel}</span>{' '}
+              <span className="font-medium text-slate-700 dark:text-slate-300">{sourceLabel}</span>{' '}
               budget to get you started — just adjust the amounts to match your plan.
             </p>
             <button
@@ -79,7 +79,7 @@ export default function BudgetEmptyState({ currentMonth, prevMonth, nextMonth, o
             </button>
             <button
               onClick={onScratch}
-              className="mt-5 text-sm text-slate-400 hover:text-slate-600 transition-colors underline underline-offset-2 decoration-slate-300 hover:decoration-slate-500"
+              className="mt-5 text-sm text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors underline underline-offset-2 decoration-slate-300 hover:decoration-slate-500"
             >
               or start with a blank slate
             </button>
@@ -89,22 +89,22 @@ export default function BudgetEmptyState({ currentMonth, prevMonth, nextMonth, o
         {/* ── Both neighbors: picker + copy ────────────────────────────────── */}
         {bothNeighbors && (
           <>
-            <p className="mt-3 text-sm text-slate-500 leading-relaxed">
+            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
               You have budgets on both sides. Pick which one to copy as your starting point.
             </p>
 
             {/* Source picker */}
             <div className="mt-6">
-              <p className="text-xs font-medium text-slate-500 mb-2">Copy from</p>
-              <div className="inline-flex bg-slate-100 rounded-xl p-1 gap-1">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Copy from</p>
+              <div className="inline-flex bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1">
                 {[prevMonth, nextMonth].map(key => (
                   <button
                     key={key}
                     onClick={() => setSelectedSource(key)}
                     className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                       selectedSource === key
-                        ? 'bg-white text-indigo-700 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
+                        ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-400 shadow-sm'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                     }`}
                   >
                     {formatMonthLabel(key)}
@@ -122,7 +122,7 @@ export default function BudgetEmptyState({ currentMonth, prevMonth, nextMonth, o
             </button>
             <button
               onClick={onScratch}
-              className="mt-5 text-sm text-slate-400 hover:text-slate-600 transition-colors underline underline-offset-2 decoration-slate-300 hover:decoration-slate-500"
+              className="mt-5 text-sm text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors underline underline-offset-2 decoration-slate-300 hover:decoration-slate-500"
             >
               or start with a blank slate
             </button>

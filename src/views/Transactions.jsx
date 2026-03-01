@@ -50,7 +50,7 @@ export default function Transactions() {
     <div className="space-y-4 max-w-3xl pb-24">
       {/* Toolbar */}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           {currentMonthTransactions.length} transaction{currentMonthTransactions.length !== 1 ? 's' : ''}
         </p>
         <button
@@ -64,13 +64,13 @@ export default function Transactions() {
 
       {/* Empty state */}
       {sorted.length === 0 ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
-          <p className="text-slate-400 text-sm">No transactions yet for this month.</p>
-          <p className="text-slate-400 text-sm mt-1">Click "Add Transaction" to get started.</p>
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-12 text-center">
+          <p className="text-slate-400 dark:text-slate-500 text-sm">No transactions yet for this month.</p>
+          <p className="text-slate-400 dark:text-slate-500 text-sm mt-1">Click "Add Transaction" to get started.</p>
         </div>
       ) : (
         /* Transaction list */
-        <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700">
           {sorted.map(t => {
             if (t.splits) {
               // Split transaction — main row + sub-rows
@@ -78,27 +78,27 @@ export default function Transactions() {
               return (
                 <div key={t.id}>
                   {/* Main row */}
-                  <div className="flex items-center gap-3.5 px-5 py-3.5 group hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-3.5 px-5 py-3.5 group hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                     <div
                       className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                       style={{ backgroundColor: firstSplitColor }}
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-slate-800 truncate">
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
                           {t.merchant || 'Split Transaction'}
                         </p>
-                        <span className="flex-shrink-0 text-xs font-medium bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+                        <span className="flex-shrink-0 text-xs font-medium bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 px-2 py-0.5 rounded-full">
                           Split
                         </span>
                       </div>
-                      <p className="text-xs text-slate-400 mt-0.5">
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                         {formatDate(t.date)}
                         {t.notes && <> · <span className="italic">{t.notes}</span></>}
                       </p>
                     </div>
                     <span className={`text-sm font-semibold flex-shrink-0 ${
-                      t.type === 'income' ? 'text-emerald-600' : 'text-slate-800'
+                      t.type === 'income' ? 'text-emerald-600' : 'text-slate-800 dark:text-slate-100'
                     }`}>
                       {t.type === 'income' ? '+' : '−'}{formatCurrency(t.amount)}
                     </span>
@@ -128,21 +128,21 @@ export default function Transactions() {
                     return (
                       <div
                         key={idx}
-                        className="flex items-center gap-3.5 pl-10 pr-5 py-2 bg-slate-50/60 border-t border-slate-100"
+                        className="flex items-center gap-3.5 pl-10 pr-5 py-2 bg-slate-50/60 dark:bg-slate-700/30 border-t border-slate-100 dark:border-slate-700"
                       >
                         {/* Tree branch indicator */}
-                        <span className="text-slate-300 text-xs flex-shrink-0 select-none">
+                        <span className="text-slate-300 dark:text-slate-600 text-xs flex-shrink-0 select-none">
                           {isLast ? '└' : '├'}
                         </span>
                         <div
                           className="w-2 h-2 rounded-full flex-shrink-0"
                           style={{ backgroundColor: color }}
                         />
-                        <p className="flex-1 text-xs text-slate-500 truncate">
+                        <p className="flex-1 text-xs text-slate-500 dark:text-slate-400 truncate">
                           {getCategoryName(split.categoryId)}
                           {subName && <> · {subName}</>}
                         </p>
-                        <span className="text-xs font-medium text-slate-500 flex-shrink-0">
+                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 flex-shrink-0">
                           {t.type === 'income' ? '+' : '−'}{formatCurrency(split.amount)}
                         </span>
                       </div>
@@ -158,17 +158,17 @@ export default function Transactions() {
             return (
               <div
                 key={t.id}
-                className="flex items-center gap-3.5 px-5 py-3.5 group hover:bg-slate-50 transition-colors"
+                className="flex items-center gap-3.5 px-5 py-3.5 group hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
               >
                 <div
                   className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: color }}
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800 truncate">
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
                     {t.merchant || getCategoryName(t.categoryId)}
                   </p>
-                  <p className="text-xs text-slate-400 mt-0.5 truncate">
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">
                     {getCategoryName(t.categoryId)}
                     {subName && <> · {subName}</>}
                     {' · '}
@@ -177,7 +177,7 @@ export default function Transactions() {
                   </p>
                 </div>
                 <span className={`text-sm font-semibold flex-shrink-0 ${
-                  t.type === 'income' ? 'text-emerald-600' : 'text-slate-800'
+                  t.type === 'income' ? 'text-emerald-600' : 'text-slate-800 dark:text-slate-100'
                 }`}>
                   {t.type === 'income' ? '+' : '−'}{formatCurrency(t.amount)}
                 </span>

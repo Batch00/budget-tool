@@ -18,14 +18,14 @@ export default function ProgressBar({ spent, planned, type = 'expense', showLabe
 
   return (
     <div>
-      <div className={`w-full bg-slate-100 rounded-full overflow-hidden ${compact ? 'h-1.5' : 'h-2'}`}>
+      <div className={`w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden ${compact ? 'h-1.5' : 'h-2'}`}>
         <div
           className={`h-full rounded-full transition-all duration-300 ${barColors[status]}`}
           style={{ width: `${percent}%` }}
         />
       </div>
       {showLabels && !compact && (
-        <div className="flex justify-between text-xs text-slate-500 mt-1">
+        <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-1">
           <span>{formatCurrency(spent)} {isIncome ? 'received' : 'spent'}</span>
           <span className={remaining < 0 ? 'text-red-500 font-medium' : ''}>
             {remaining < 0

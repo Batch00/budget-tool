@@ -40,32 +40,44 @@ function shortMonth(key) {
 
 // ── Custom tooltips ───────────────────────────────────────────────────────────
 
-function CurrencyTooltip({ active, payload, label }) {
+function CurrencyTooltip({ active, payload, label, isDark }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-lg px-3.5 py-2.5 text-xs">
-      {label && <p className="font-semibold text-slate-700 mb-1.5">{label}</p>}
+    <div
+      className="rounded-xl shadow-lg px-3.5 py-2.5 text-xs"
+      style={{
+        backgroundColor: isDark ? '#1e293b' : '#ffffff',
+        border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
+      }}
+    >
+      {label && <p className={`font-semibold mb-1.5 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{label}</p>}
       {payload.map(entry => (
         <div key={entry.name} className="flex items-center justify-between gap-6">
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full inline-block flex-shrink-0" style={{ backgroundColor: entry.color }} />
-            <span className="text-slate-600">{entry.name}</span>
+            <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>{entry.name}</span>
           </span>
-          <span className="font-semibold text-slate-800">{formatCurrency(entry.value)}</span>
+          <span className={`font-semibold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{formatCurrency(entry.value)}</span>
         </div>
       ))}
     </div>
   )
 }
 
-function PieTooltip({ active, payload }) {
+function PieTooltip({ active, payload, isDark }) {
   if (!active || !payload?.length) return null
   const { name, value, payload: p } = payload[0]
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-lg px-3.5 py-2.5 text-xs">
-      <p className="font-semibold text-slate-700">{name}</p>
-      <p className="text-slate-600 mt-0.5">{formatCurrency(value)}</p>
-      <p className="text-slate-400">{p.pct}% of expenses</p>
+    <div
+      className="rounded-xl shadow-lg px-3.5 py-2.5 text-xs"
+      style={{
+        backgroundColor: isDark ? '#1e293b' : '#ffffff',
+        border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
+      }}
+    >
+      <p className={`font-semibold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{name}</p>
+      <p className={`mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>{formatCurrency(value)}</p>
+      <p className={isDark ? 'text-slate-500' : 'text-slate-400'}>{p.pct}% of expenses</p>
     </div>
   )
 }
@@ -74,15 +86,15 @@ function PieTooltip({ active, payload }) {
 
 function SummaryChip({ label, value, sub, colorClass, icon: Icon }) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm">
       <div className="flex items-start justify-between gap-2 mb-1">
-        <p className="text-xs text-slate-500">{label}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
         <div className={`p-2 rounded-lg flex-shrink-0 ${colorClass}`}>
           <Icon size={16} />
         </div>
       </div>
-      <p className="text-xl font-bold text-slate-800 tabular-nums">{value}</p>
-      {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
+      <p className="text-xl font-bold text-slate-800 dark:text-slate-100 tabular-nums">{value}</p>
+      {sub && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{sub}</p>}
     </div>
   )
 }
@@ -97,10 +109,10 @@ function EmptyChart({ message = 'No data for this period.' }) {
 
 function SectionCard({ title, subtitle, children }) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-5">
       <div className="mb-4">
-        <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
-        {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
+        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">{title}</h3>
+        {subtitle && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{subtitle}</p>}
       </div>
       {children}
     </div>
@@ -114,7 +126,7 @@ function Tab({ label, active, onClick }) {
       className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
         active
           ? 'bg-indigo-600 text-white shadow-sm'
-          : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+          : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'
       }`}
     >
       {label}
@@ -124,7 +136,7 @@ function Tab({ label, active, onClick }) {
 
 // ── This Month view ───────────────────────────────────────────────────────────
 
-function MonthView({ categories, transactions, budget }) {
+function MonthView({ categories, transactions, budget, isDark }) {
   const expenseCategories = categories.filter(c => c.type === 'expense')
 
   const actualIncome = getTotalByType(transactions, 'income')
@@ -170,11 +182,11 @@ function MonthView({ categories, transactions, budget }) {
     <div className="space-y-1.5 mt-3">
       {donutData.map(d => (
         <div key={d.id} className="flex items-center justify-between text-xs">
-          <span className="flex items-center gap-1.5 text-slate-600 truncate mr-2">
+          <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 truncate mr-2">
             <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
             {d.name}
           </span>
-          <span className="font-medium text-slate-700 flex-shrink-0">{d.pct}%</span>
+          <span className="font-medium text-slate-700 dark:text-slate-300 flex-shrink-0">{d.pct}%</span>
         </div>
       ))}
     </div>
@@ -241,7 +253,7 @@ function MonthView({ categories, transactions, budget }) {
                         <Cell key={entry.id} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip content={<PieTooltip />} />
+                    <Tooltip content={<PieTooltip isDark={isDark} />} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -266,17 +278,17 @@ function MonthView({ categories, transactions, budget }) {
                 return (
                   <div key={d.id}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="flex items-center gap-2 text-xs text-slate-600 truncate mr-2">
-                        <span className="text-slate-400 font-medium w-4 text-right flex-shrink-0">{i + 1}</span>
+                      <span className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 truncate mr-2">
+                        <span className="text-slate-400 dark:text-slate-500 font-medium w-4 text-right flex-shrink-0">{i + 1}</span>
                         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
                         <span className="truncate">{d.name}</span>
                       </span>
                       <span className="flex items-center gap-2 flex-shrink-0 text-xs">
-                        <span className="text-slate-400">{d.txns} transaction{d.txns !== 1 ? 's' : ''}</span>
-                        <span className="font-semibold text-slate-800">{formatCurrency(d.spent)}</span>
+                        <span className="text-slate-400 dark:text-slate-500">{d.txns} transaction{d.txns !== 1 ? 's' : ''}</span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-100">{formatCurrency(d.spent)}</span>
                       </span>
                     </div>
-                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all"
                         style={{ width: `${Math.min(100, pct)}%`, backgroundColor: d.color }}
@@ -307,11 +319,11 @@ function MonthView({ categories, transactions, budget }) {
                 barCategoryGap="30%"
                 barGap={3}
               >
-                <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#f1f5f9" />
+                <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke={isDark ? '#334155' : '#f1f5f9'} />
                 <XAxis
                   type="number"
                   tickFormatter={shortCurrency}
-                  tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  tick={{ fontSize: 11, fill: isDark ? '#94a3b8' : '#94a3b8' }}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -319,11 +331,11 @@ function MonthView({ categories, transactions, budget }) {
                   type="category"
                   dataKey="name"
                   width={100}
-                  tick={{ fontSize: 12, fill: '#475569' }}
+                  tick={{ fontSize: 12, fill: isDark ? '#94a3b8' : '#475569' }}
                   axisLine={false}
                   tickLine={false}
                 />
-                <Tooltip content={<CurrencyTooltip />} />
+                <Tooltip content={<CurrencyTooltip isDark={isDark} />} />
                 <Legend
                   iconType="circle"
                   iconSize={8}
@@ -342,7 +354,7 @@ function MonthView({ categories, transactions, budget }) {
 
 // ── Trends view ───────────────────────────────────────────────────────────────
 
-function TrendsView({ categories, transactions, budgets }) {
+function TrendsView({ categories, transactions, budgets, isDark }) {
   const monthKeys = useMemo(() => getLastNMonths(12), [])
 
   const trendData = useMemo(() => {
@@ -383,21 +395,21 @@ function TrendsView({ categories, transactions, budgets }) {
                 data={trendData}
                 margin={{ top: 5, right: 20, bottom: 5, left: 10 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#334155' : '#f1f5f9'} vertical={false} />
                 <XAxis
                   dataKey="label"
-                  tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  tick={{ fontSize: 11, fill: isDark ? '#94a3b8' : '#94a3b8' }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
                   tickFormatter={shortCurrency}
-                  tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  tick={{ fontSize: 11, fill: isDark ? '#94a3b8' : '#94a3b8' }}
                   axisLine={false}
                   tickLine={false}
                   width={52}
                 />
-                <Tooltip content={<CurrencyTooltip />} />
+                <Tooltip content={<CurrencyTooltip isDark={isDark} />} />
                 <Legend
                   iconType="circle"
                   iconSize={8}
@@ -441,34 +453,34 @@ function TrendsView({ categories, transactions, budgets }) {
         <div className="overflow-x-auto -mx-1">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-slate-100">
-                <th className="text-left py-2 px-1 font-semibold text-slate-500">Month</th>
-                <th className="text-right py-2 px-1 font-semibold text-slate-500">Income</th>
-                <th className="text-right py-2 px-1 font-semibold text-slate-500">Expenses</th>
-                <th className="text-right py-2 px-1 font-semibold text-slate-500">Planned</th>
-                <th className="text-right py-2 px-1 font-semibold text-slate-500">Net</th>
-                <th className="text-right py-2 px-1 font-semibold text-slate-500">Transactions</th>
+              <tr className="border-b border-slate-100 dark:border-slate-700">
+                <th className="text-left py-2 px-1 font-semibold text-slate-500 dark:text-slate-400">Month</th>
+                <th className="text-right py-2 px-1 font-semibold text-slate-500 dark:text-slate-400">Income</th>
+                <th className="text-right py-2 px-1 font-semibold text-slate-500 dark:text-slate-400">Expenses</th>
+                <th className="text-right py-2 px-1 font-semibold text-slate-500 dark:text-slate-400">Planned</th>
+                <th className="text-right py-2 px-1 font-semibold text-slate-500 dark:text-slate-400">Net</th>
+                <th className="text-right py-2 px-1 font-semibold text-slate-500 dark:text-slate-400">Transactions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-slate-50 dark:divide-slate-700">
               {[...trendData].reverse().map(row => (
-                <tr key={row.key} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-2.5 px-1 font-medium text-slate-700">{row.fullLabel}</td>
+                <tr key={row.key} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                  <td className="py-2.5 px-1 font-medium text-slate-700 dark:text-slate-300">{row.fullLabel}</td>
                   <td className="py-2.5 px-1 text-right text-emerald-600 font-medium">
-                    {row.Income > 0 ? formatCurrency(row.Income) : <span className="text-slate-300">—</span>}
+                    {row.Income > 0 ? formatCurrency(row.Income) : <span className="text-slate-300 dark:text-slate-600">—</span>}
                   </td>
-                  <td className="py-2.5 px-1 text-right text-slate-700">
-                    {row.Expenses > 0 ? formatCurrency(row.Expenses) : <span className="text-slate-300">—</span>}
+                  <td className="py-2.5 px-1 text-right text-slate-700 dark:text-slate-300">
+                    {row.Expenses > 0 ? formatCurrency(row.Expenses) : <span className="text-slate-300 dark:text-slate-600">—</span>}
                   </td>
-                  <td className="py-2.5 px-1 text-right text-slate-400">
-                    {row.Planned > 0 ? formatCurrency(row.Planned) : <span className="text-slate-300">—</span>}
+                  <td className="py-2.5 px-1 text-right text-slate-400 dark:text-slate-500">
+                    {row.Planned > 0 ? formatCurrency(row.Planned) : <span className="text-slate-300 dark:text-slate-600">—</span>}
                   </td>
                   <td className={`py-2.5 px-1 text-right font-semibold ${
-                    row.Net > 0 ? 'text-emerald-600' : row.Net < 0 ? 'text-red-500' : 'text-slate-300'
+                    row.Net > 0 ? 'text-emerald-600' : row.Net < 0 ? 'text-red-500' : 'text-slate-300 dark:text-slate-600'
                   }`}>
-                    {row.Income > 0 || row.Expenses > 0 ? formatCurrency(row.Net) : <span className="text-slate-300">—</span>}
+                    {row.Income > 0 || row.Expenses > 0 ? formatCurrency(row.Net) : <span className="text-slate-300 dark:text-slate-600">—</span>}
                   </td>
-                  <td className="py-2.5 px-1 text-right text-slate-400">{row.txns || '—'}</td>
+                  <td className="py-2.5 px-1 text-right text-slate-400 dark:text-slate-500">{row.txns || '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -482,13 +494,13 @@ function TrendsView({ categories, transactions, budgets }) {
 // ── Analytics (main view) ─────────────────────────────────────────────────────
 
 export default function Analytics() {
-  const { categories, transactions, budgets, currentMonth, currentMonthTransactions, currentMonthBudget } = useApp()
+  const { categories, transactions, budgets, currentMonth, currentMonthTransactions, currentMonthBudget, isDark } = useApp()
   const [tab, setTab] = useState('month')
 
   return (
     <div className="space-y-5 max-w-4xl">
       {/* Tab switcher */}
-      <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+      <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 w-fit">
         <Tab label="This Month" active={tab === 'month'} onClick={() => setTab('month')} />
         <Tab label="Trends" active={tab === 'trends'} onClick={() => setTab('trends')} />
       </div>
@@ -498,12 +510,14 @@ export default function Analytics() {
           categories={categories}
           transactions={currentMonthTransactions}
           budget={currentMonthBudget}
+          isDark={isDark}
         />
       ) : (
         <TrendsView
           categories={categories}
           transactions={transactions}
           budgets={budgets}
+          isDark={isDark}
         />
       )}
     </div>

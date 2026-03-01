@@ -18,15 +18,15 @@ import TransactionModal from '../components/transactions/TransactionModal'
 
 function SummaryCard({ icon: Icon, label, amount, subtitle, colorClass }) {
   return (
-    <div className="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-slate-200">
+    <div className="bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-5 shadow-sm border border-slate-200 dark:border-slate-700">
       <div className="flex items-start justify-between gap-2 mb-1">
-        <p className="text-sm text-slate-500">{label}</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
         <div className={`flex-shrink-0 p-2 rounded-lg ${colorClass}`}>
           <Icon size={16} />
         </div>
       </div>
-      <p className="text-xl sm:text-2xl font-bold text-slate-800 tabular-nums">{formatCurrency(amount)}</p>
-      {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
+      <p className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 tabular-nums">{formatCurrency(amount)}</p>
+      {subtitle && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{subtitle}</p>}
     </div>
   )
 }
@@ -48,7 +48,7 @@ function CategoryCard({ category, transactions, monthBudget }) {
   })
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
       {/* Category header */}
       <div className="p-5">
         <div className="flex items-center justify-between mb-3">
@@ -57,7 +57,7 @@ function CategoryCard({ category, transactions, monthBudget }) {
             className={`flex items-center gap-2 text-left ${hasSubcategories ? 'cursor-pointer' : 'cursor-default'}`}
           >
             <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: category.color }} />
-            <h3 className="text-sm font-medium text-slate-800">{category.name}</h3>
+            <h3 className="text-sm font-medium text-slate-800 dark:text-slate-100">{category.name}</h3>
             {hasSubcategories && (
               <span className="text-slate-400">
                 {expanded
@@ -68,8 +68,8 @@ function CategoryCard({ category, transactions, monthBudget }) {
             )}
           </button>
           <div className="text-right">
-            <span className="text-sm font-semibold text-slate-800">{formatCurrency(spent)}</span>
-            <span className="text-xs text-slate-400 ml-1">/ {formatCurrency(planned)}</span>
+            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{formatCurrency(spent)}</span>
+            <span className="text-xs text-slate-400 dark:text-slate-500 ml-1">/ {formatCurrency(planned)}</span>
           </div>
         </div>
         <ProgressBar spent={spent} planned={planned} type={categoryType} />
@@ -77,20 +77,20 @@ function CategoryCard({ category, transactions, monthBudget }) {
 
       {/* Subcategory breakdown (expanded) */}
       {expanded && visibleSubcategories.length > 0 && (
-        <div className="border-t border-slate-100 px-5 py-3 space-y-3">
+        <div className="border-t border-slate-100 dark:border-slate-700 px-5 py-3 space-y-3">
           {visibleSubcategories.map(sub => {
             const subSpent = getSubcategorySpent(transactions, sub.id)
             const subPlanned = getSubcategoryPlanned(monthBudget, sub.id)
             return (
               <div key={sub.id}>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs text-slate-500 flex items-center gap-1.5">
-                    <span className="w-1 h-1 rounded-full bg-slate-300 inline-block" />
+                  <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                    <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600 inline-block" />
                     {sub.name}
                   </span>
                   <span className="text-xs">
-                    <span className="font-medium text-slate-700">{formatCurrency(subSpent)}</span>
-                    <span className="text-slate-400 ml-1">/ {formatCurrency(subPlanned)}</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-300">{formatCurrency(subSpent)}</span>
+                    <span className="text-slate-400 dark:text-slate-500 ml-1">/ {formatCurrency(subPlanned)}</span>
                   </span>
                 </div>
                 <ProgressBar spent={subSpent} planned={subPlanned} type={categoryType} />
@@ -213,15 +213,15 @@ export default function Dashboard() {
 
       {/* Zero-based budget alert */}
       {Math.abs(unbudgeted) < 0.01 && plannedIncome > 0 ? (
-        <div className="rounded-xl p-4 text-sm font-medium bg-emerald-50 border border-emerald-200 text-emerald-800">
+        <div className="rounded-xl p-4 text-sm font-medium bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300">
           Every dollar is budgeted. You're all set!
         </div>
       ) : unbudgeted > 0.01 ? (
-        <div className="rounded-xl p-4 text-sm font-medium bg-amber-50 border border-amber-200 text-amber-800">
+        <div className="rounded-xl p-4 text-sm font-medium bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300">
           You have {formatCurrency(unbudgeted)} left to budget. Head to Budget to assign it.
         </div>
       ) : unbudgeted < -0.01 ? (
-        <div className="rounded-xl p-4 text-sm font-medium bg-red-50 border border-red-200 text-red-800">
+        <div className="rounded-xl p-4 text-sm font-medium bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300">
           You've over-allocated {formatCurrency(Math.abs(unbudgeted))} beyond your planned income.
         </div>
       ) : null}
@@ -229,7 +229,7 @@ export default function Dashboard() {
       {/* Income categories */}
       {incomeCategories.length > 0 && (
         <section>
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Income</h3>
+          <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Income</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {incomeCategories.map(cat => (
               <CategoryCard
@@ -246,7 +246,7 @@ export default function Dashboard() {
       {/* Expense categories */}
       {expenseCategories.length > 0 && (
         <section>
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Expenses</h3>
+          <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Expenses</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {expenseCategories.map(cat => (
               <CategoryCard
@@ -263,12 +263,12 @@ export default function Dashboard() {
       {/* Recent activity */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Recent Activity</h3>
+          <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Recent Activity</h3>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 hidden sm:inline">What did you spend today?</span>
+            <span className="text-xs text-slate-400 dark:text-slate-500 hidden sm:inline">What did you spend today?</span>
             <button
               onClick={() => setModalOpen(true)}
-              className="flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-600 text-xs font-medium rounded-lg hover:bg-indigo-100 transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-medium rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
             >
               <Plus size={12} />
               Log it
@@ -276,11 +276,11 @@ export default function Dashboard() {
           </div>
         </div>
         {recentTransactions.length === 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 text-center">
-            <p className="text-slate-400 text-sm">No transactions yet this month.</p>
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 text-center">
+            <p className="text-slate-400 dark:text-slate-500 text-sm">No transactions yet this month.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700">
             {recentTransactions.map(t => {
               const isIncome = t.type === 'income'
               let label, color
@@ -297,10 +297,10 @@ export default function Dashboard() {
                 <div key={t.id} className="flex items-center gap-3 px-4 py-3">
                   <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-800 truncate">{label}</p>
-                    <p className="text-xs text-slate-400">{formatDate(t.date)}</p>
+                    <p className="text-sm text-slate-800 dark:text-slate-100 truncate">{label}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">{formatDate(t.date)}</p>
                   </div>
-                  <span className={`text-sm font-semibold flex-shrink-0 tabular-nums ${isIncome ? 'text-emerald-600' : 'text-slate-800'}`}>
+                  <span className={`text-sm font-semibold flex-shrink-0 tabular-nums ${isIncome ? 'text-emerald-600' : 'text-slate-800 dark:text-slate-100'}`}>
                     {isIncome ? '+' : '−'}{formatCurrency(t.amount)}
                   </span>
                 </div>

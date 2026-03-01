@@ -81,6 +81,65 @@ export function AppProvider({ children }) {
   const [budgets, setBudgets] = useState({})
   const [loading, setLoading] = useState(true)
 
+  // ── Theme ─────────────────────────────────────────────────────────────────────
+  const [theme, setThemeState] = useState(() => loadData('theme', 'system'))
+
+  const setTheme = useCallback((newTheme) => {
+    setThemeState(newTheme)
+    saveData('theme', newTheme)
+    supabase.auth.updateUser({ data: { theme: newTheme } }).catch(() => {})
+  }, [])
+
+  // Apply/remove .dark class on <html> and update PWA theme-color meta tags
+  useEffect(() => {
+    const root = document.documentElement
+    const lightMeta = document.querySelector('meta[name="theme-color"][media="(prefers-color-scheme: light)"]')
+    const darkMeta = document.querySelector('meta[name="theme-color"][media="(prefers-color-scheme: dark)"]')
+
+    const applyDark = (dark) => {
+      if (dark) {
+        root.classList.add('dark')
+      } else {
+        root.classList.remove('dark')
+      }
+      if (lightMeta) lightMeta.content = dark ? '#0f172a' : '#4f46e5'
+      if (darkMeta) darkMeta.content = dark ? '#0f172a' : '#4f46e5'
+    }
+
+    if (theme === 'dark') {
+      applyDark(true)
+      return
+    }
+    if (theme === 'light') {
+      applyDark(false)
+      return
+    }
+    // system
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    applyDark(mq.matches)
+    // Reset meta tags to media-based behavior for system mode
+    if (lightMeta) lightMeta.content = '#4f46e5'
+    if (darkMeta) darkMeta.content = '#0f172a'
+    const onChange = (e) => applyDark(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [theme])
+
+  // Sync theme from Supabase user metadata on login
+  useEffect(() => {
+    if (!user) return
+    const remoteTheme = user.user_metadata?.theme
+    if (remoteTheme && remoteTheme !== loadData('theme', 'system')) {
+      setTheme(remoteTheme)
+    }
+  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const isDark = (() => {
+    if (theme === 'dark') return true
+    if (theme === 'light') return false
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+  })()
+
   // Ref so updateTransaction can always read latest transactions without a stale closure
   const transactionsRef = useRef(transactions)
   useEffect(() => { transactionsRef.current = transactions }, [transactions])
@@ -650,6 +709,9 @@ export function AppProvider({ children }) {
     budgets,
     currentMonthBudget,
     loading,
+    theme,
+    setTheme,
+    isDark,
     addTransaction,
     updateTransaction,
     deleteTransaction,
@@ -673,6 +735,7 @@ export function AppProvider({ children }) {
     currentMonth, setCurrentMonth,
     categories, transactions, currentMonthTransactions,
     budgets, currentMonthBudget, loading,
+    theme, setTheme, isDark,
     addTransaction, updateTransaction, deleteTransaction,
     setBudgetAmount, getMonthBudget,
     resetMonthBudget, setSubcategoryBudgetAmount, copyBudget, moveSubcategory,

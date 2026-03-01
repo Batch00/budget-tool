@@ -39,7 +39,7 @@ function AmountInput({ value: planned, onUpdate, inputClass = '', displayClass =
         onBlur={commit}
         onKeyDown={handleKeyDown}
         autoFocus
-        className={`w-32 text-right text-sm border border-indigo-400 rounded-lg px-2.5 py-1 outline-none focus:ring-2 focus:ring-indigo-200 ${inputClass}`}
+        className={`w-32 text-right text-sm border border-indigo-400 rounded-lg px-2.5 py-1 outline-none focus:ring-2 focus:ring-indigo-200 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 ${inputClass}`}
       />
     )
   }
@@ -47,11 +47,11 @@ function AmountInput({ value: planned, onUpdate, inputClass = '', displayClass =
   return (
     <button
       onClick={() => { setEditing(true); setValue(planned > 0 ? planned.toFixed(2) : '') }}
-      className={`w-32 text-right text-sm px-2.5 py-1 rounded-lg hover:bg-slate-100 transition-colors ${displayClass}`}
+      className={`w-32 text-right text-sm px-2.5 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${displayClass}`}
     >
       {planned > 0
-        ? <span className="text-slate-700">{formatCurrency(planned)}</span>
-        : <span className="text-slate-300 italic">Set amount</span>
+        ? <span className="text-slate-700 dark:text-slate-300">{formatCurrency(planned)}</span>
+        : <span className="text-slate-300 dark:text-slate-600 italic">Set amount</span>
       }
     </button>
   )
@@ -81,7 +81,7 @@ function InlineNameInput({ value, onCommit, onCancel, className = '' }) {
         onBlur={commit}
         onKeyDown={handleKeyDown}
         autoFocus
-        className={`flex-1 min-w-0 text-sm border border-indigo-300 rounded-md px-2 py-0.5 outline-none focus:ring-2 focus:ring-indigo-200 ${className}`}
+        className={`flex-1 min-w-0 text-sm border border-indigo-300 rounded-md px-2 py-0.5 outline-none focus:ring-2 focus:ring-indigo-200 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 ${className}`}
       />
       <button
         type="button"
@@ -96,7 +96,7 @@ function InlineNameInput({ value, onCommit, onCancel, className = '' }) {
         type="button"
         onMouseDown={e => e.preventDefault()}
         onClick={onCancel}
-        className="p-1 rounded text-slate-400 hover:bg-slate-100 flex-shrink-0 transition-colors"
+        className="p-1 rounded text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 flex-shrink-0 transition-colors"
         title="Cancel"
       >
         <X size={13} />
@@ -121,10 +121,10 @@ function SubcategoryBudgetRow({ categoryId, subcategory, planned, onUpdate }) {
   }
 
   return (
-    <div className="flex items-center py-2 pl-7 border-b border-slate-50 last:border-0 gap-2">
+    <div className="flex items-center py-2 pl-7 border-b border-slate-50 dark:border-slate-700 last:border-0 gap-2">
       {/* Left: dot + name (or name input) */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        <div className="w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0" />
+        <div className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 flex-shrink-0" />
         {nameEditing ? (
           <InlineNameInput
             value={subcategory.name}
@@ -133,7 +133,7 @@ function SubcategoryBudgetRow({ categoryId, subcategory, planned, onUpdate }) {
           />
         ) : (
           <span
-            className="text-sm text-slate-500 cursor-default select-none"
+            className="text-sm text-slate-500 dark:text-slate-400 cursor-default select-none"
             onDoubleClick={startNameEdit}
             title="Double-click to rename"
           >
@@ -166,7 +166,7 @@ function CategoryBudgetSection({ category, monthBudget, onUpdateCategory, onUpda
   if (!hasSubcategories) {
     // No subcategories — single-amount row
     return (
-      <div className="flex items-center py-2.5 border-b border-slate-100 last:border-0 gap-2">
+      <div className="flex items-center py-2.5 border-b border-slate-100 dark:border-slate-700 last:border-0 gap-2">
         <div className="flex items-center gap-2.5 flex-1 min-w-0">
           <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: category.color }} />
           {nameEditing ? (
@@ -178,7 +178,7 @@ function CategoryBudgetSection({ category, monthBudget, onUpdateCategory, onUpda
             />
           ) : (
             <span
-              className="text-sm text-slate-700 cursor-default select-none"
+              className="text-sm text-slate-700 dark:text-slate-300 cursor-default select-none"
               onDoubleClick={startNameEdit}
               title="Double-click to rename"
             >
@@ -199,7 +199,7 @@ function CategoryBudgetSection({ category, monthBudget, onUpdateCategory, onUpda
   const total = getCategoryEffectivePlanned(category, monthBudget)
 
   return (
-    <div className="border-b border-slate-100 last:border-0">
+    <div className="border-b border-slate-100 dark:border-slate-700 last:border-0">
       {/* Category header — name (double-click to rename) + read-only total */}
       <div className="flex items-center py-2.5 gap-2">
         <div className="flex items-center gap-2.5 flex-1 min-w-0">
@@ -213,7 +213,7 @@ function CategoryBudgetSection({ category, monthBudget, onUpdateCategory, onUpda
             />
           ) : (
             <span
-              className="text-sm font-medium text-slate-700 cursor-default select-none"
+              className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-default select-none"
               onDoubleClick={startNameEdit}
               title="Double-click to rename"
             >
@@ -222,10 +222,10 @@ function CategoryBudgetSection({ category, monthBudget, onUpdateCategory, onUpda
           )}
         </div>
         {!nameEditing && (
-          <span className="w-32 flex-shrink-0 text-right text-sm font-semibold text-slate-700 px-2.5">
+          <span className="w-32 flex-shrink-0 text-right text-sm font-semibold text-slate-700 dark:text-slate-300 px-2.5">
             {total > 0
               ? formatCurrency(total)
-              : <span className="text-slate-300 font-normal italic">No budget</span>
+              : <span className="text-slate-300 dark:text-slate-600 font-normal italic">No budget</span>
             }
           </span>
         )}
@@ -301,9 +301,9 @@ export default function Budget() {
   return (
     <div className="space-y-6 max-w-2xl">
       {/* Monthly summary */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Monthly Plan</h3>
+          <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Monthly Plan</h3>
           <button
             onClick={handleReset}
             title="Reset month budget"
@@ -315,15 +315,15 @@ export default function Budget() {
         </div>
         <div className="space-y-2.5">
           <div className="flex justify-between text-sm">
-            <span className="text-slate-600">Planned income</span>
+            <span className="text-slate-600 dark:text-slate-400">Planned income</span>
             <span className="font-semibold text-emerald-600">{formatCurrency(plannedIncome)}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-slate-600">Planned expenses</span>
-            <span className="font-semibold text-slate-700">{formatCurrency(plannedExpenses)}</span>
+            <span className="text-slate-600 dark:text-slate-400">Planned expenses</span>
+            <span className="font-semibold text-slate-700 dark:text-slate-300">{formatCurrency(plannedExpenses)}</span>
           </div>
-          <div className="border-t border-slate-100 pt-2.5 flex justify-between text-sm font-semibold">
-            <span className="text-slate-700">Unbudgeted</span>
+          <div className="border-t border-slate-100 dark:border-slate-700 pt-2.5 flex justify-between text-sm font-semibold">
+            <span className="text-slate-700 dark:text-slate-300">Unbudgeted</span>
             <span className={
               Math.abs(unbudgeted) < 0.01
                 ? 'text-emerald-600'
@@ -341,8 +341,8 @@ export default function Budget() {
       </div>
 
       {/* Income */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Income</h3>
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+        <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Income</h3>
         {incomeCategories.map(cat => (
           <CategoryBudgetSection
             key={cat.id}
@@ -356,7 +356,7 @@ export default function Budget() {
 
       {/* Expenses */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Expenses</h3>
+        <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Expenses</h3>
         {expenseCategories.map(cat => (
           <CategoryBudgetSection
             key={cat.id}

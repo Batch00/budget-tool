@@ -53,15 +53,15 @@ export default function CategoryModal({ isOpen, onClose, onSave, editingCategory
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h2 className="text-base font-semibold text-slate-800">
+      <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700">
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">
             {editingCategory ? 'Edit Category' : 'New Category'}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
           >
             <X size={18} />
           </button>
@@ -70,7 +70,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, editingCategory
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {/* Name */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
               Name <span className="text-red-400">*</span>
             </label>
             <input
@@ -79,10 +79,10 @@ export default function CategoryModal({ isOpen, onClose, onSave, editingCategory
               onChange={e => { setName(e.target.value); setNameError('') }}
               placeholder="e.g. Entertainment"
               autoFocus
-              className={`w-full px-3 py-2 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 transition-colors ${
+              className={`w-full px-3 py-2 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 transition-colors bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 ${
                 nameError
                   ? 'border-red-300 focus:border-red-400'
-                  : 'border-slate-200 focus:border-indigo-400'
+                  : 'border-slate-200 dark:border-slate-600 focus:border-indigo-400'
               }`}
             />
             {nameError && <p className="text-xs text-red-500 mt-1">{nameError}</p>}
@@ -90,7 +90,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, editingCategory
 
           {/* Type */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Type</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Type</label>
             <div className="flex gap-2">
               {(['income', 'expense']).map(t => (
                 <button
@@ -100,9 +100,9 @@ export default function CategoryModal({ isOpen, onClose, onSave, editingCategory
                   className={`flex-1 py-2 text-sm font-medium rounded-lg border transition-colors capitalize ${
                     type === t
                       ? t === 'income'
-                        ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                        : 'bg-indigo-50 border-indigo-300 text-indigo-700'
-                      : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                        ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-300 text-emerald-700'
+                        : 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 text-indigo-700'
+                      : 'border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
                   }`}
                 >
                   {t}
@@ -122,13 +122,13 @@ export default function CategoryModal({ isOpen, onClose, onSave, editingCategory
                   onClick={() => setColor(c)}
                   title={c}
                   className={`w-7 h-7 rounded-full transition-transform hover:scale-110 ${
-                    color === c ? 'ring-2 ring-offset-2 ring-slate-500 scale-110' : ''
+                    color === c ? 'ring-2 ring-offset-2 ring-slate-500 dark:ring-slate-400 scale-110' : ''
                   }`}
                   style={{ backgroundColor: c }}
                 />
               ))}
               {/* Preview dot */}
-              <div className="ml-auto flex items-center gap-2 text-xs text-slate-400">
+              <div className="ml-auto flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
                 <span className="font-mono">{color}</span>
               </div>
@@ -140,7 +140,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, editingCategory
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+              className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
             >
               Cancel
             </button>

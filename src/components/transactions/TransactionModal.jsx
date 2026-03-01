@@ -377,7 +377,7 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
       <div
         key={key}
         className={`flex items-center gap-2 ${indent} py-2 text-sm transition-colors ${
-          isSelected ? 'bg-indigo-50' : 'hover:bg-slate-50'
+          isSelected ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
         }`}
       >
         {/* Checkbox + name */}
@@ -387,12 +387,12 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
           className="flex items-center gap-2 flex-1 min-w-0 text-left"
         >
           <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
-            isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 bg-white'
+            isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700'
           }`}>
             {isSelected && <Check size={10} className="text-white" />}
           </span>
           <span className={`flex-1 truncate ${
-            isSelected ? 'text-indigo-700 font-medium' : `text-slate-700${!subId ? ' font-medium' : ''}`
+            isSelected ? 'text-indigo-700 dark:text-indigo-400 font-medium' : `text-slate-700 dark:text-slate-300${!subId ? ' font-medium' : ''}`
           }`}>
             {name}
           </span>
@@ -410,7 +410,7 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
                 value={existingSplit.amount}
                 onChange={e => setSplitAmount(existingSplit.id, e.target.value)}
                 onBlur={() => formatAmountOnBlur(existingSplit.amount, v => setSplitAmount(existingSplit.id, v))}
-                className="w-full pl-5 pr-1 py-1 text-xs border border-indigo-200 rounded-md bg-white text-slate-800 outline-none focus:ring-1 focus:ring-indigo-300"
+                className="w-full pl-5 pr-1 py-1 text-xs border border-indigo-200 dark:border-indigo-700 rounded-md bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-indigo-300"
               />
             </div>
             <button
@@ -438,7 +438,7 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
       <div key={cat.id}>
         {cat.subcategories.length > 0 ? (
           <>
-            <div className="px-3 pt-2.5 pb-1 text-[10px] font-bold tracking-widest uppercase text-indigo-500 select-none">
+            <div className="px-3 pt-2.5 pb-1 text-[10px] font-bold tracking-widest uppercase text-indigo-500 dark:text-indigo-400 select-none">
               {cat.name}
             </div>
             {cat.subcategories.map(sub => renderPickerRow({
@@ -477,16 +477,16 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal card */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl z-10">
-          <h2 className="text-base font-semibold text-slate-800">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700 sticky top-0 bg-white dark:bg-slate-800 rounded-t-2xl z-10">
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">
             {editingTransaction ? 'Edit Transaction' : 'Add Transaction'}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
           >
             <X size={18} />
           </button>
@@ -497,7 +497,7 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
           {/* Amount + Date — stacked on mobile, side by side on sm+ */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
                 Amount <span className="text-red-400">*</span>
               </label>
               <div className="relative">
@@ -509,10 +509,10 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
                   value={form.amount}
                   onChange={e => setField('amount', e.target.value)}
                   onBlur={() => formatAmountOnBlur(form.amount, v => setField('amount', v))}
-                  className={`w-full pl-7 pr-3 py-2 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 transition-colors ${
+                  className={`w-full pl-7 pr-3 py-2 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 transition-colors bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 ${
                     errors.amount
                       ? 'border-red-300 focus:border-red-400'
-                      : 'border-slate-200 focus:border-indigo-400'
+                      : 'border-slate-200 dark:border-slate-600 focus:border-indigo-400'
                   }`}
                 />
               </div>
@@ -520,17 +520,17 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
                 Date <span className="text-red-400">*</span>
               </label>
               <input
                 type="date"
                 value={form.date}
                 onChange={e => setField('date', e.target.value)}
-                className={`w-full px-3 py-2 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 transition-colors ${
+                className={`w-full px-3 py-2 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 transition-colors bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 ${
                   errors.date
                     ? 'border-red-300 focus:border-red-400'
-                    : 'border-slate-200 focus:border-indigo-400'
+                    : 'border-slate-200 dark:border-slate-600 focus:border-indigo-400'
                 }`}
               />
               {errors.date && <p className="text-xs text-red-500 mt-1">{errors.date}</p>}
@@ -539,7 +539,7 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
 
           {/* Merchant with autocomplete */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Merchant</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Merchant</label>
             <div className="relative">
               <input
                 type="text"
@@ -548,17 +548,17 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
                 onChange={e => setField('merchant', e.target.value)}
                 onFocus={() => setMerchantFocused(true)}
                 onBlur={() => setTimeout(() => setMerchantFocused(false), 150)}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-colors"
+                className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-colors bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
               />
               {merchantSuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
+                <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg overflow-hidden">
                   {merchantSuggestions.map(m => (
                     <button
                       key={m}
                       type="button"
                       onMouseDown={e => e.preventDefault()}
                       onClick={() => { setField('merchant', m); setMerchantFocused(false) }}
-                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0"
+                      className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors border-b border-slate-50 dark:border-slate-600 last:border-0"
                     >
                       {m}
                     </button>
@@ -570,20 +570,20 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
 
           {/* Notes */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Notes</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Notes</label>
             <input
               type="text"
               placeholder="Optional notes..."
               value={form.notes}
               onChange={e => setField('notes', e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-colors"
+              className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-colors bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
             />
           </div>
 
           {/* Budget item picker */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-medium text-slate-600">
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
                 Budget Item <span className="text-red-400">*</span>
               </label>
               {(form.splits.length > 0 || form.amount) && (
@@ -601,15 +601,15 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
             <button
               type="button"
               onClick={() => setPickerOpen(v => !v)}
-              className={`w-full flex items-center justify-between px-3 py-2 text-sm border rounded-lg bg-white transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-200 ${
+              className={`w-full flex items-center justify-between px-3 py-2 text-sm border rounded-lg bg-white dark:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-200 ${
                 hasPickerError
                   ? 'border-red-300'
                   : pickerOpen
                   ? 'border-indigo-400 ring-2 ring-indigo-200'
-                  : 'border-slate-200 hover:border-slate-300'
+                  : 'border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'
               }`}
             >
-              <span className={`truncate ${triggerLabel ? 'text-slate-800' : 'text-slate-400'}`}>
+              <span className={`truncate ${triggerLabel ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400'}`}>
                 {triggerLabel ?? 'Choose Budget Item(s)...'}
               </span>
               <ChevronDown
@@ -620,11 +620,11 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
 
             {/* Picker panel - search bar + scrollable list */}
             {pickerOpen && (
-              <div className={`mt-1 border rounded-xl bg-white shadow-sm overflow-hidden ${
-                hasPickerError ? 'border-red-200' : 'border-slate-200'
+              <div className={`mt-1 border rounded-xl bg-white dark:bg-slate-800 shadow-sm overflow-hidden ${
+                hasPickerError ? 'border-red-200' : 'border-slate-200 dark:border-slate-700'
               }`}>
                 {/* Search input */}
-                <div className="p-2 border-b border-slate-100">
+                <div className="p-2 border-b border-slate-100 dark:border-slate-700">
                   <div className="relative">
                     <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <input
@@ -632,7 +632,7 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
                       value={pickerSearch}
                       onChange={e => setPickerSearch(e.target.value)}
                       placeholder="Search categories..."
-                      className="w-full pl-7 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-colors"
+                      className="w-full pl-7 pr-3 py-1.5 text-sm border border-slate-200 dark:border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-colors bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
                     />
                   </div>
                 </div>
@@ -644,7 +644,7 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
                   style={{ maxHeight: '192px' }}
                 >
                   {searchFilteredCategories.length === 0 && (
-                    <p className="px-4 py-3 text-sm text-slate-400">
+                    <p className="px-4 py-3 text-sm text-slate-400 dark:text-slate-500">
                       {pickerSearch ? 'No matches found.' : 'No categories available.'}
                     </p>
                   )}
@@ -652,11 +652,11 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
                   {/* Show type section headers only when both types are visible and unlocked */}
                   {!lockedType && incomeFiltered.length > 0 && expenseFiltered.length > 0 && (
                     <>
-                      <div className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase text-slate-400 bg-slate-50 border-b border-slate-100 sticky top-0">
+                      <div className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase text-slate-400 bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 sticky top-0">
                         Income
                       </div>
                       {renderCategoryGroup(incomeFiltered)}
-                      <div className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase text-slate-400 bg-slate-50 border-t border-b border-slate-100 sticky top-0">
+                      <div className="px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase text-slate-400 bg-slate-50 dark:bg-slate-800 border-t border-b border-slate-100 dark:border-slate-700 sticky top-0">
                         Expenses
                       </div>
                       {renderCategoryGroup(expenseFiltered)}
@@ -679,7 +679,7 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+              className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
             >
               Cancel
             </button>

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import {
   Download, Upload, AlertTriangle, Smartphone,
   Mail, Lock, Trash2, CheckCircle, Info,
+  Sun, Monitor, Moon,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
@@ -62,6 +63,7 @@ export default function Settings() {
   const {
     categories, transactions, budgets, currentMonth,
     importAllData, clearMonthData, clearAllData,
+    theme, setTheme,
   } = useApp()
   const { user, updateEmail, updatePassword, signOut } = useAuth()
 
@@ -257,18 +259,18 @@ export default function Settings() {
       {/* ── Install App ──────────────────────────────────────────────── */}
       {showInstallSection && (
         <section>
-          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Install App</h2>
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Install App</h2>
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
             {isIOSSafari ? (
               // iOS Safari doesn't support programmatic install prompts — show instructions
               <div>
                 <div className="flex items-start gap-3 mb-5">
-                  <div className="p-2 bg-indigo-50 rounded-lg shrink-0">
+                  <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg shrink-0">
                     <Smartphone size={18} className="text-indigo-600" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-800">Add BatchFlow to your Home Screen</h3>
-                    <p className="text-sm text-slate-500 mt-0.5">Follow these steps in Safari to install the app.</p>
+                    <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Add BatchFlow to your Home Screen</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Follow these steps in Safari to install the app.</p>
                   </div>
                 </div>
                 <div className="space-y-4">
@@ -294,8 +296,8 @@ export default function Settings() {
                         {step}
                       </span>
                       <div>
-                        <p className="text-sm font-medium text-slate-800">{text}</p>
-                        {detail && <p className="text-xs text-slate-500 mt-0.5">{detail}</p>}
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{text}</p>
+                        {detail && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{detail}</p>}
                       </div>
                     </div>
                   ))}
@@ -305,8 +307,8 @@ export default function Settings() {
               // Chrome / Edge — fire the captured beforeinstallprompt
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-800">Install BatchFlow</h3>
-                  <p className="text-sm text-slate-500 mt-1">
+                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Install BatchFlow</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                     Install BatchFlow as an app on this device for a faster, full-screen experience without a browser bar.
                   </p>
                 </div>
@@ -323,20 +325,48 @@ export default function Settings() {
         </section>
       )}
 
+      {/* ── Appearance ───────────────────────────────────────────────── */}
+      <section>
+        <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Appearance</h2>
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Theme</label>
+          <div className="flex gap-2">
+            {[
+              { value: 'light', label: 'Light', Icon: Sun },
+              { value: 'system', label: 'System', Icon: Monitor },
+              { value: 'dark', label: 'Dark', Icon: Moon },
+            ].map(({ value, label, Icon }) => (
+              <button
+                key={value}
+                onClick={() => setTheme(value)}
+                className={`flex-1 flex flex-col items-center gap-1.5 py-3 text-sm font-medium rounded-lg border transition-colors ${
+                  theme === value
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'
+                }`}
+              >
+                <Icon size={16} />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Account ──────────────────────────────────────────────────── */}
       <section>
-        <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Account</h2>
-        <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
+        <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Account</h2>
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700">
 
           {/* Signed in as */}
           <div className="px-6 py-4">
-            <p className="text-xs text-slate-500 mb-0.5">Signed in as</p>
-            <p className="text-sm font-medium text-slate-800">{user?.email}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">Signed in as</p>
+            <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{user?.email}</p>
           </div>
 
           {/* Change email */}
           <div className="p-6">
-            <h3 className="text-sm font-semibold text-slate-800 mb-3 flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
               <Mail size={14} className="text-slate-400" />
               Change Email
             </h3>
@@ -346,7 +376,7 @@ export default function Settings() {
                 value={emailNew}
                 onChange={e => { setEmailNew(e.target.value); setEmailStatus(null) }}
                 placeholder="New email address"
-                className="flex-1 min-w-0 text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="flex-1 min-w-0 text-sm px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
               />
               <button
                 type="submit"
@@ -368,7 +398,7 @@ export default function Settings() {
 
           {/* Change password */}
           <div className="p-6">
-            <h3 className="text-sm font-semibold text-slate-800 mb-3 flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
               <Lock size={14} className="text-slate-400" />
               Change Password
             </h3>
@@ -378,7 +408,7 @@ export default function Settings() {
                 value={passNew}
                 onChange={e => { setPassNew(e.target.value); setPassStatus(null) }}
                 placeholder="New password"
-                className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full text-sm px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
               />
               <div className="flex gap-2">
                 <input
@@ -386,7 +416,7 @@ export default function Settings() {
                   value={passConfirm}
                   onChange={e => { setPassConfirm(e.target.value); setPassStatus(null) }}
                   placeholder="Confirm new password"
-                  className="flex-1 min-w-0 text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="flex-1 min-w-0 text-sm px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
                 />
                 <button
                   type="submit"
@@ -412,16 +442,16 @@ export default function Settings() {
 
       {/* ── Preferences ──────────────────────────────────────────────── */}
       <section>
-        <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Preferences</h2>
-        <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-5">
+        <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Preferences</h2>
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 space-y-5">
 
           {/* Currency */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Currency</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Currency</label>
             <select
               value={prefs.currency}
               onChange={e => handlePrefChange('currency', e.target.value)}
-              className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+              className="w-full text-sm px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
             >
               {CURRENCIES.map(c => (
                 <option key={c.value} value={c.value}>{c.label}</option>
@@ -431,7 +461,7 @@ export default function Settings() {
 
           {/* First day of week */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">First Day of Week</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">First Day of Week</label>
             <div className="flex gap-2">
               {['sunday', 'monday'].map(day => (
                 <button
@@ -440,7 +470,7 @@ export default function Settings() {
                   className={`flex-1 py-2 text-sm font-medium rounded-lg border transition-colors capitalize ${
                     prefs.weekStart === day
                       ? 'bg-indigo-600 text-white border-indigo-600'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'
                   }`}
                 >
                   {day.charAt(0).toUpperCase() + day.slice(1)}
@@ -451,11 +481,11 @@ export default function Settings() {
 
           {/* Default landing page */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Default Landing Page</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Default Landing Page</label>
             <select
               value={prefs.defaultPage}
               onChange={e => handlePrefChange('defaultPage', e.target.value)}
-              className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+              className="w-full text-sm px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
             >
               {PAGE_OPTIONS.map(p => (
                 <option key={p.value} value={p.value}>{p.label}</option>
@@ -478,15 +508,15 @@ export default function Settings() {
 
       {/* ── Data Management ──────────────────────────────────────────── */}
       <section>
-        <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Data Management</h2>
-        <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100">
+        <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Data Management</h2>
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700">
 
           {/* Export */}
           <div className="p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-sm font-semibold text-slate-800">Export Backup</h3>
-                <p className="text-sm text-slate-500 mt-1">
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Export Backup</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                   Download a full JSON backup of all your transactions, budgets, and categories.
                 </p>
               </div>
@@ -504,14 +534,14 @@ export default function Settings() {
           <div className="p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-sm font-semibold text-slate-800">Import Backup</h3>
-                <p className="text-sm text-slate-500 mt-1">
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Import Backup</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                   Restore from a previously exported JSON backup. This will overwrite all current data.
                 </p>
               </div>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors shrink-0"
+                className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors shrink-0"
               >
                 <Upload size={15} />
                 Choose File
@@ -526,21 +556,21 @@ export default function Settings() {
             </div>
 
             {importState === 'error' && (
-              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+              <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2">
                 <AlertTriangle size={14} className="text-red-500 mt-0.5 shrink-0" />
-                <p className="text-sm text-red-700">{errorMsg}</p>
+                <p className="text-sm text-red-700 dark:text-red-300">{errorMsg}</p>
               </div>
             )}
 
             {importState && importState !== 'error' && (
-              <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg">
                 <div className="flex items-start gap-2 mb-2">
                   <AlertTriangle size={14} className="text-amber-600 mt-0.5 shrink-0" />
-                  <p className="text-sm font-medium text-amber-800">
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
                     This will replace all current data and cannot be undone.
                   </p>
                 </div>
-                <p className="text-sm text-slate-600 mb-1 ml-5">
+                <p className="text-sm text-slate-600 dark:text-slate-300 mb-1 ml-5">
                   <strong>{importState.stats.transactions}</strong> transaction{importState.stats.transactions !== 1 ? 's' : ''},
                   {' '}<strong>{importState.stats.categories}</strong> categor{importState.stats.categories !== 1 ? 'ies' : 'y'},
                   {' '}<strong>{importState.stats.months}</strong> budget month{importState.stats.months !== 1 ? 's' : ''}
@@ -560,7 +590,7 @@ export default function Settings() {
                   </button>
                   <button
                     onClick={handleCancelImport}
-                    className="px-4 py-2 bg-white text-slate-700 text-sm font-medium rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+                    className="px-4 py-2 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
                   >
                     Cancel
                   </button>
@@ -571,15 +601,15 @@ export default function Settings() {
 
           {/* Clear month */}
           <div className="p-6">
-            <h3 className="text-sm font-semibold text-slate-800 mb-1">Clear Month Data</h3>
-            <p className="text-sm text-slate-500 mb-3">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-1">Clear Month Data</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
               Delete all transactions and budget plans for a specific month.
             </p>
             <div className="flex gap-2">
               <select
                 value={clearMonthKey}
                 onChange={e => { setClearMonthKey(e.target.value); setClearConfirm(false); setClearDone(false) }}
-                className="flex-1 min-w-0 text-sm px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                className="flex-1 min-w-0 text-sm px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
               >
                 {recentMonths.map(m => (
                   <option key={m.key} value={m.key}>{m.label}</option>
@@ -588,7 +618,7 @@ export default function Settings() {
               {!clearConfirm ? (
                 <button
                   onClick={() => setClearConfirm(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors shrink-0"
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors shrink-0"
                 >
                   <Trash2 size={14} />
                   Clear
@@ -604,7 +634,7 @@ export default function Settings() {
                   </button>
                   <button
                     onClick={() => setClearConfirm(false)}
-                    className="px-3 py-2 bg-white text-slate-700 text-sm font-medium rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+                    className="px-3 py-2 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
                   >
                     Cancel
                   </button>
@@ -623,18 +653,18 @@ export default function Settings() {
 
       {/* ── About ────────────────────────────────────────────────────── */}
       <section>
-        <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">About</h2>
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
+        <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">About</h2>
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
           <div className="flex items-start gap-3">
-            <div className="p-2 bg-indigo-50 rounded-lg shrink-0">
+            <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg shrink-0">
               <Info size={18} className="text-indigo-600" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-slate-800">
-                BatchFlow <span className="font-normal text-slate-400">v{APP_VERSION}</span>
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                BatchFlow <span className="font-normal text-slate-400 dark:text-slate-500">v{APP_VERSION}</span>
               </h3>
-              <p className="text-sm text-slate-500 mt-0.5 italic">Own your flow.</p>
-              <p className="text-sm text-slate-500 mt-3">
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 italic">Own your flow.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-3">
                 BatchFlow is a Progressive Web App (PWA) - it can be installed on any device directly from your browser, no app store required.
               </p>
             </div>
@@ -645,8 +675,8 @@ export default function Settings() {
       {/* ── Danger Zone ──────────────────────────────────────────────── */}
       <section>
         <h2 className="text-xs font-semibold text-red-500 uppercase tracking-wider mb-3">Danger Zone</h2>
-        <div className="bg-white rounded-xl border border-red-200 p-6">
-          <p className="text-sm text-slate-500 mb-3">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-red-200 dark:border-red-900 p-6">
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
             Permanently delete all your data and sign out. This cannot be undone.
           </p>
           {!deleteOpen ? (
@@ -658,10 +688,10 @@ export default function Settings() {
               Delete Account Data
             </button>
           ) : (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
               <div className="flex items-start gap-2 mb-3">
                 <AlertTriangle size={14} className="text-red-500 mt-0.5 shrink-0" />
-                <p className="text-sm text-red-800">
+                <p className="text-sm text-red-800 dark:text-red-300">
                   This will delete all transactions, budgets, and categories, then sign you out.
                   Type <strong>DELETE</strong> to confirm.
                 </p>
@@ -672,7 +702,7 @@ export default function Settings() {
                   value={deleteInput}
                   onChange={e => setDeleteInput(e.target.value)}
                   placeholder="Type DELETE"
-                  className="flex-1 min-w-0 text-sm px-3 py-2 border border-red-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400 bg-white"
+                  className="flex-1 min-w-0 text-sm px-3 py-2 border border-red-200 dark:border-red-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
                 />
                 <button
                   onClick={handleDeleteAccount}
@@ -683,7 +713,7 @@ export default function Settings() {
                 </button>
                 <button
                   onClick={() => { setDeleteOpen(false); setDeleteInput('') }}
-                  className="px-3 py-2 bg-white text-slate-700 text-sm font-medium rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors shrink-0"
+                  className="px-3 py-2 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors shrink-0"
                 >
                   Cancel
                 </button>
