@@ -314,9 +314,10 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
     onClose()
   }
 
-  if (!isOpen) return null
-
   // ── Render helpers ─────────────────────────────────────────────────────────
+  // All hooks must be called before any conditional return. The early-exit
+  // for isOpen===false lives just before the JSX return, after all hooks and
+  // derived values are computed.
 
   const remainingColor =
     Math.abs(remaining) < 0.01
@@ -467,6 +468,8 @@ export default function TransactionModal({ isOpen, onClose, editingTransaction =
     ))
 
   const hasPickerError = errors.splits && form.splits.length === 0
+
+  if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
