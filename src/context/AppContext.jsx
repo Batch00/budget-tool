@@ -233,9 +233,13 @@ export function AppProvider({ children }) {
         budgetPlans: planRows.length,
       })
 
-      const cats = catRows.length === 0
+      const isNewAccount = catRows.length === 0
+      const cats = isNewAccount
         ? await seedDefaults()
         : catRows.map(row => dbToCategory(row, subRows ?? []))
+
+      // New accounts get light mode by default; existing accounts keep their stored preference
+      if (isNewAccount) setTheme('light')
 
       setCategories(cats)
       setTransactions((txRows ?? []).map(dbToTransaction))

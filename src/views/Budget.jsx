@@ -355,7 +355,7 @@ export default function Budget() {
       </div>
 
       {/* Expenses */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
         <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Expenses</h3>
         {expenseCategories.map(cat => (
           <CategoryBudgetSection
