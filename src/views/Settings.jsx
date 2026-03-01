@@ -635,7 +635,7 @@ export default function Settings() {
               </h3>
               <p className="text-sm text-slate-500 mt-0.5 italic">Own your flow.</p>
               <p className="text-sm text-slate-500 mt-3">
-                BatchFlow is a Progressive Web App (PWA) — it can be installed on any device directly from your browser, no app store required.
+                BatchFlow is a Progressive Web App (PWA) - it can be installed on any device directly from your browser, no app store required.
               </p>
             </div>
           </div>
